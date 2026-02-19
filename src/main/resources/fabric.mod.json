@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "taskmanager",
+  "version": "${version}",
+  "name": "Task Manager",
+  "description": "Configurable Task Manager to check CPU/GPU/Startup time and Memory per mod",
+  "authors": [],
+  "contact": {},
+  "license": "Apache-2.0",
+  "icon": "assets/taskmanager/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "wueffi.taskmanager.client.taskmanagerClient"
+    ],
+    "main": [
+      "taskmanager.taskmanager"
+    ]
+  },
+  "mixins": [
+    "taskmanager.mixins.json",
+    {
+      "config": "taskmanager.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
