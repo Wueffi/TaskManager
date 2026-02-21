@@ -5,6 +5,7 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL33;
 import wueffi.taskmanager.client.RenderPhaseProfiler;
+import wueffi.taskmanager.client.TaskManagerScreen;
 import wueffi.taskmanager.client.taskmanagerClient;
 
 import java.util.ArrayDeque;
@@ -36,6 +37,7 @@ public class GpuTimer {
     }
 
     public static void begin(String phase) {
+        if (!TaskManagerScreen.isProfilingActive()) return;
         if (!isSupported()) return;
         if (active != null) {
             return;

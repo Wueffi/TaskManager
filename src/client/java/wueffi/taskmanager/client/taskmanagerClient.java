@@ -1,10 +1,9 @@
 package wueffi.taskmanager.client;
 
+import wueffi.taskmanager.client.util.KeyBindHandler;
 import wueffi.taskmanager.client.util.ModClassIndex;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,6 +15,7 @@ public class taskmanagerClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         ModClassIndex.build();
+        KeyBindHandler.register();
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!startupClosed) {
