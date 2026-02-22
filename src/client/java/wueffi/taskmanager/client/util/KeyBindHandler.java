@@ -14,8 +14,7 @@ public class KeyBindHandler {
     public static void register() {
         openKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.taskmanager.open",
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_F12,
+                InputUtil.Type.KEYSYM.createFromCode(GLFW.GLFW_KEY_F12),
                 "category.taskmanager"
         ));
 
