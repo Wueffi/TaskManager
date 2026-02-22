@@ -4,8 +4,14 @@
   "version": "${version}",
   "name": "Task Manager",
   "description": "Configurable Task Manager to check CPU/GPU/Startup time and Memory per mod",
-  "authors": [],
-  "contact": {},
+  "authors": [
+    Wueffi
+  ],
+ "contact": {
+    "homepage": "https://modrinth.com/mod/taskmanager",
+    "issues": "https://github.com/Wueffi/TaskManager/issues",
+    "sources": "https://github.com/Wueffi/TaskManager"
+  },
   "license": "Apache-2.0",
   "icon": "assets/taskmanager/icon.png",
   "environment": "client",
@@ -27,6 +33,6 @@
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric-api": "*",
-    "minecraft": ">={minecraft_version}"
+    "minecraft": ">=${minecraft_version}"
   }
 }
