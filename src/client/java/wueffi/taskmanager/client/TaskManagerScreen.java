@@ -3,6 +3,7 @@ package wueffi.taskmanager.client;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
@@ -309,7 +310,29 @@ public class TaskManagerScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+//    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+//        int checkX = width - 160;
+//        if (mouseX >= checkX && mouseX < width - PADDING && mouseY >= 4 && mouseY < 16) {
+//            onlyProfileWhenOpen = !onlyProfileWhenOpen;
+//            return true;
+//        }
+//
+//        int tabY = 20;
+//        int tabW = 90;
+//        for (int i = 0; i < 3; i++) {
+//            int tx = PADDING + i * (tabW + 2);
+//            if (mouseX >= tx && mouseX < tx + tabW && mouseY >= tabY && mouseY < tabY + TAB_HEIGHT) {
+//                activeTab = i;
+//                scrollOffset = 0;
+//                return true;
+//            }
+//        }
+//        return super.mouseClicked(mouseX, mouseY, button);
+//    }
+    public boolean mouseClicked(Click click, boolean doubled) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+
         int checkX = width - 160;
         if (mouseX >= checkX && mouseX < width - PADDING && mouseY >= 4 && mouseY < 16) {
             onlyProfileWhenOpen = !onlyProfileWhenOpen;
@@ -326,7 +349,7 @@ public class TaskManagerScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubled);
     }
 
     public static boolean isProfilingActive() {

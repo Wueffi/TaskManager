@@ -4,6 +4,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
+import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 import wueffi.taskmanager.client.TaskManagerScreen;
 
@@ -16,7 +17,8 @@ public class KeyBindHandler {
                 "key.taskmanager.open",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_F12,
-                "category.taskmanager"
+//                "category.taskmanager"
+                new KeyBinding.Category(Identifier.of("category.taskmanager"))
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

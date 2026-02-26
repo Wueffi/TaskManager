@@ -17,8 +17,9 @@ public class SkyRenderingMixin {
             method = "renderCelestialBodies",
             at = @At("HEAD")
     )
-    private void renderspy$onSkyHead(
-            MatrixStack matrices, VertexConsumerProvider.Immediate vertexConsumers, float rot, int phase, float alpha, float starBrightness, CallbackInfo ci) {
+    private void taskmanager$onSkyHead(
+//            MatrixStack matrices, VertexConsumerProvider.Immediate vertexConsumers, float rot, int phase, float alpha, float starBrightness, CallbackInfo ci) {
+        MatrixStack matrices, float f, int i, float g, float h, CallbackInfo ci) {
         RenderPhaseProfiler.getInstance().beginCpuPhase("sky.renderCelestialBodies");
         GpuTimer.begin("sky.renderCelestialBodies");
     }
@@ -27,8 +28,9 @@ public class SkyRenderingMixin {
             method = "renderCelestialBodies",
             at = @At("TAIL")
     )
-    private void renderspy$onSkyTail(
-            MatrixStack matrices, VertexConsumerProvider.Immediate vertexConsumers, float rot, int phase, float alpha, float starBrightness, CallbackInfo ci) {
+    private void taskmanager$onSkyTail(
+//            MatrixStack matrices, VertexConsumerProvider.Immediate vertexConsumers, float rot, int phase, float alpha, float starBrightness, CallbackInfo ci) {
+        MatrixStack matrices, float f, int i, float g, float h, CallbackInfo ci) {
         GpuTimer.end("sky.renderCelestialBodies");
         RenderPhaseProfiler.getInstance().endCpuPhase("sky.renderCelestialBodies");
     }
