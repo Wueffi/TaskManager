@@ -2,14 +2,11 @@ package wueffi.taskmanager.client.util;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
-import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 import wueffi.taskmanager.client.ProfilerManager;
 import wueffi.taskmanager.client.TaskManagerScreen;
-import wueffi.taskmanager.client.util.ConfigManager;
 
 public class KeyBindHandler {
 
@@ -17,29 +14,28 @@ public class KeyBindHandler {
     private static KeyBinding sessionKey;
     private static KeyBinding hudToggleKey;
 
-    public static boolean matchesOpenKey(KeyInput input) {
-        return openKey != null && input != null && openKey.matchesKey(input);
+    public static boolean matchesOpenKey(int keyCode, int scanCode) {
+        return openKey != null && openKey.matchesKey(keyCode, scanCode);
     }
 
     public static void register() {
-        KeyBinding.Category taskManagerCategory = new KeyBinding.Category(Identifier.of("taskmanager", "taskmanager"));
         sessionKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.taskmanager.session",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_F9,
-                taskManagerCategory
+                "taskmanager"
         ));
         hudToggleKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.taskmanager.hud_toggle",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_F10,
-                taskManagerCategory
+                "taskmanager"
         ));
         openKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.taskmanager.open",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_F12,
-                taskManagerCategory
+                "taskmanager"
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

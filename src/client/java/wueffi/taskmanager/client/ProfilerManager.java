@@ -2165,22 +2165,25 @@ public class ProfilerManager {
         if (client.worldRenderer == null) {
             return ChunkCounts.empty();
         }
-
-        String debug = client.worldRenderer.getChunksDebugString();
-        if (debug == null || debug.isBlank()) {
-            return ChunkCounts.empty();
-        }
-
-        Matcher matcher = CHUNK_DEBUG_PATTERN.matcher(debug);
-        if (!matcher.find()) {
-            return ChunkCounts.empty();
-        }
-
         try {
-            int rendered = Integer.parseInt(matcher.group(1));
-            int loaded = Integer.parseInt(matcher.group(2));
-            return new ChunkCounts(loaded, rendered);
-        } catch (NumberFormatException ignored) {
+            String debug = client.worldRenderer.getChunksDebugString();
+            if (debug == null || debug.isBlank()) {
+                return ChunkCounts.empty();
+            }
+
+            Matcher matcher = CHUNK_DEBUG_PATTERN.matcher(debug);
+            if (!matcher.find()) {
+                return ChunkCounts.empty();
+            }
+
+            try {
+                int rendered = Integer.parseInt(matcher.group(1));
+                int loaded = Integer.parseInt(matcher.group(2));
+                return new ChunkCounts(loaded, rendered);
+            } catch (NumberFormatException ignored) {
+                return ChunkCounts.empty();
+            }
+        } catch (NullPointerException e) {
             return ChunkCounts.empty();
         }
     }

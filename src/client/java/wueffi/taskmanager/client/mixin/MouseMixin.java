@@ -1,7 +1,6 @@
 package wueffi.taskmanager.client.mixin;
 
 import net.minecraft.client.Mouse;
-import net.minecraft.client.input.MouseInput;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,7 +16,7 @@ public class MouseMixin {
     }
 
     @Inject(method = "onMouseButton", at = @At("HEAD"))
-    private void taskmanager$onMouseButton(long window, MouseInput input, int modifiers, CallbackInfo ci) {
+    private void taskmanager$onMouseButton(long window, int button, int action, int mods, CallbackInfo ci) {
         InputLatencyProfiler.getInstance().recordInputEvent();
     }
 

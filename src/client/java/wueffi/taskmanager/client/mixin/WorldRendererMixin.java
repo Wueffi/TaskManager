@@ -25,17 +25,9 @@ public class WorldRendererMixin {
             at = @At("HEAD")
     )
     private void taskmanager$onRenderHead(
-            ObjectAllocator allocator,
-            RenderTickCounter tickCounter,
-            boolean renderBlockOutline,
-            Camera camera,
-            Matrix4f positionMatrix,
-            Matrix4f matrix4f,          // NEW PARAM
-            Matrix4f projectionMatrix,
-            GpuBufferSlice fog,
-            Vector4f fogColor,
-            boolean shouldRenderSky,
-            CallbackInfo ci) {
+            ObjectAllocator allocator, RenderTickCounter tickCounter, boolean renderBlockOutline, Camera camera, Matrix4f positionMatrix, Matrix4f projectionMatrix, GpuBufferSlice fog, Vector4f fogColor, boolean shouldRenderSky, CallbackInfo ci
+            // NEW PARAM
+    ) {
 
         if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) return;
         RenderPhaseProfiler.getInstance().beginCpuPhase("worldRenderer.render", "minecraft");
@@ -47,17 +39,9 @@ public class WorldRendererMixin {
             at = @At("TAIL")
     )
     private void taskmanager$onRenderTail(
-            ObjectAllocator allocator,
-            RenderTickCounter tickCounter,
-            boolean renderBlockOutline,
-            Camera camera,
-            Matrix4f positionMatrix,
-            Matrix4f matrix4f,          // NEW PARAM
-            Matrix4f projectionMatrix,
-            GpuBufferSlice fog,
-            Vector4f fogColor,
-            boolean shouldRenderSky,
-            CallbackInfo ci) {
+            ObjectAllocator allocator, RenderTickCounter tickCounter, boolean renderBlockOutline, Camera camera, Matrix4f positionMatrix, Matrix4f projectionMatrix, GpuBufferSlice fog, Vector4f fogColor, boolean shouldRenderSky, CallbackInfo ci
+            // NEW PARAM
+    ) {
 
         if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) return;
         GpuTimer.end("worldRenderer.render");

@@ -3,17 +3,15 @@ package wueffi.taskmanager.client;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.text.Text;
 import net.minecraft.text.OrderedText;
 import net.minecraft.util.Identifier;
+import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 import wueffi.taskmanager.client.util.ConfigManager;
 import wueffi.taskmanager.client.util.ModIconCache;
@@ -1955,9 +1953,9 @@ public class TaskManagerScreen extends Screen {
     }
 
 
-    public boolean mouseClicked(Click click, boolean doubled) {
-        double mouseX = toLogicalX(click.x());
-        double mouseY = toLogicalY(click.y());
+    public boolean mouseClicked(double mX, double mY, int button) {
+        double mouseX = toLogicalX(mX);
+        double mouseY = toLogicalY(mY);
         focusedSearchTable = null;
         startupSearchFocused = false;
         focusedColorSetting = null;
@@ -2309,28 +2307,28 @@ public class TaskManagerScreen extends Screen {
             }
         }
 
-        return super.mouseClicked(click, doubled);
+        return super.mouseClicked(mX, mY, button);
     }
 
 
 
     @Override
-    public boolean mouseDragged(Click click, double deltaX, double deltaY) {
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
         if (draggingHudTransparency && activeTab == 11) {
             int left = PADDING;
             int actionY = getContentY() + PADDING + 18 - scrollOffset;
             actionY += (22 * sessionActionCount()) + 32 + (22 * hudBaseActionCount());
             SliderLayout slider = getHudTransparencySliderLayout(left, actionY, getScreenWidth() - 24);
-            updateHudTransparencyFromMouse(toLogicalX(click.x()), slider);
+            updateHudTransparencyFromMouse(toLogicalX(mouseX), slider);
             return true;
         }
-        return super.mouseDragged(click, deltaX, deltaY);
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
     }
 
     @Override
-    public boolean mouseReleased(Click click) {
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
         draggingHudTransparency = false;
-        return super.mouseReleased(click);
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
@@ -2512,82 +2510,82 @@ public class TaskManagerScreen extends Screen {
     }
 
     @Override
-    public boolean charTyped(CharInput input) {
-        if (focusedColorSetting != null && input.isValidChar()) {
-            colorEditValue = normalizeColorEdit(colorEditValue + input.asString());
+    public boolean charTyped(char chr, int modifiers) {
+        if (focusedColorSetting != null) {
+            colorEditValue = normalizeColorEdit(colorEditValue + chr);
             return true;
         }
-        if (startupSearchFocused && input.isValidChar()) {
-            startupSearch += input.asString();
+        if (startupSearchFocused) {
+            startupSearch += chr;
             scrollOffset = 0;
             return true;
         }
-        if (focusedSearchTable == null || !input.isValidChar()) {
-            return super.charTyped(input);
+        if (focusedSearchTable == null) {
+            return super.charTyped(chr, modifiers);
         }
         String current = getSearchValue(focusedSearchTable);
-        setSearchValue(focusedSearchTable, current + input.asString());
+        setSearchValue(focusedSearchTable, current + chr);
         scrollOffset = 0;
         return true;
     }
 
     @Override
-    public boolean keyPressed(KeyInput input) {
-        if ((attributionHelpOpen || activeDrilldownTable != null) && input.key() == 256) {
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if ((attributionHelpOpen || activeDrilldownTable != null) && keyCode == GLFW.GLFW_KEY_ESCAPE) {
             attributionHelpOpen = false;
             activeDrilldownTable = null;
             return true;
         }
-        if (wueffi.taskmanager.client.util.KeyBindHandler.matchesOpenKey(input)) {
+        if (wueffi.taskmanager.client.util.KeyBindHandler.matchesOpenKey(keyCode, scanCode)) {
             close();
             return true;
         }
         if (focusedColorSetting != null) {
-            if (input.key() == 259) {
+            if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
                 if (!colorEditValue.isEmpty()) {
                     colorEditValue = colorEditValue.substring(0, Math.max(0, colorEditValue.length() - 1));
                     if (colorEditValue.isEmpty()) colorEditValue = "#";
                 }
                 return true;
             }
-            if (input.key() == 257 || input.key() == 335) {
+            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
                 applyColorSetting(focusedColorSetting, colorEditValue);
                 focusedColorSetting = null;
                 colorEditValue = "";
                 return true;
             }
-            if (input.key() == 256) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
                 focusedColorSetting = null;
                 colorEditValue = "";
                 return true;
             }
         }
         if (startupSearchFocused) {
-            if (input.key() == 259) {
+            if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
                 if (!startupSearch.isEmpty()) {
                     startupSearch = startupSearch.substring(0, startupSearch.length() - 1);
                 }
                 return true;
             }
-            if (input.key() == 256) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
                 startupSearchFocused = false;
                 return true;
             }
         }
         if (focusedSearchTable != null) {
-            if (input.key() == 259) {
+            if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
                 String current = getSearchValue(focusedSearchTable);
                 if (!current.isEmpty()) {
                     setSearchValue(focusedSearchTable, current.substring(0, current.length() - 1));
                 }
                 return true;
             }
-            if (input.key() == 256) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
                 focusedSearchTable = null;
                 return true;
             }
         }
-        return super.keyPressed(input);
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     private String getSearchValue(TableId tableId) {
