@@ -1,7 +1,7 @@
 {
   "onlyProfileWhenOpen": true,
   "captureMode": "OPEN_ONLY",
-  "hudEnabled": true,
+  "hudEnabled": false,
   "hudPosition": "TOP_LEFT",
   "hudLayoutMode": "SINGLE_COLUMN",
   "sessionDurationSeconds": 30,

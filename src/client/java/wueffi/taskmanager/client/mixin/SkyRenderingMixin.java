@@ -22,14 +22,7 @@ public class SkyRenderingMixin {
             at = @At("HEAD")
     )
     private void taskmanager$onSkyHead(
-            MatrixStack matrices,
-            float sunAngle,
-            float moonAngle,
-            float starAngle,
-            net.minecraft.world.MoonPhase moonPhase,
-            float alpha,
-            float starBrightness,
-            CallbackInfo ci) {
+            MatrixStack matrices, float f, int i, float g, float h, CallbackInfo ci) {
 
         if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) return;
         RenderPhaseProfiler.getInstance().beginCpuPhase("sky.renderCelestialBodies", "minecraft");
@@ -41,14 +34,7 @@ public class SkyRenderingMixin {
             at = @At("TAIL")
     )
     private void taskmanager$onSkyTail(
-            MatrixStack matrices,
-            float sunAngle,
-            float moonAngle,
-            float starAngle,
-            net.minecraft.world.MoonPhase moonPhase,
-            float alpha,
-            float starBrightness,
-            CallbackInfo ci) {
+            MatrixStack matrices, float f, int i, float g, float h, CallbackInfo ci) {
 
         if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) return;
         GpuTimer.end("sky.renderCelestialBodies");
