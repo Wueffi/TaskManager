@@ -48,11 +48,10 @@ jobs:
           tag_name: ${{ steps.tag.outputs.tag_name }}
           name: "Task Manager ${{ steps.tag.outputs.tag_name }}"
           body: |
-            ## 自动构建发布
-            此版本由 GitHub Actions 自动构建。
-
-            ### 更新内容
-            - 修复 Linux 平台因加载 Windows Pdh 库导致的崩溃
+            ## Automated Build Release
+            This release was built automatically by GitHub Actions.
+            ### Changes
+            - Fixed a crash on Linux caused by loading the Windows PDH library.
           draft: false
           prerelease: ${{ inputs.prerelease || false }}
           files: |

@@ -22,7 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-final class NativeWindowsSensors {
+final class Sensors {
 
     record Sample(
             boolean active,
@@ -55,7 +55,7 @@ final class NativeWindowsSensors {
     private static final int CORETEMP_BYTES = 4096;
     private final GpuEngineSampler gpuEngineSampler;
 
-    NativeWindowsSensors() {
+    Sensors() {
         this.gpuEngineSampler = IS_WINDOWS ? new WindowsGpuEngineSampler() : new DummyGpuEngineSampler();
     }
 
@@ -232,7 +232,6 @@ final class NativeWindowsSensors {
         return new String(raw, 0, end, StandardCharsets.US_ASCII).trim();
     }
 
-    // ---------- SensorAccumulator 不变 ----------
     private static final class SensorAccumulator {
         private final String normalizedTarget;
         private final List<String> attempts = new ArrayList<>();
@@ -389,7 +388,6 @@ final class NativeWindowsSensors {
         }
     }
 
-    // ---------- MappedView 不变 ----------
     private static final class MappedView implements AutoCloseable {
         private final WinNT.HANDLE mapping;
         private final Pointer view;
@@ -439,13 +437,11 @@ final class NativeWindowsSensors {
         }
     }
 
-    // ---------- 接口定义 ----------
     private interface GpuEngineSampler {
         double sample(SensorAccumulator sensors);
     }
 
-    // ---------- Windows 实现（原 GpuEngineSampler 代码） ----------
-    private static final class WindowsGpuEngineSampler implements GpuEngineSampler {
+   private static final class WindowsGpuEngineSampler implements GpuEngineSampler {
         private static final long INSTANCE_REFRESH_MS = 5_000L;
         private WinNT.HANDLE queryHandle;
         private final List<WinNT.HANDLE> counterHandles = new ArrayList<>();
@@ -560,7 +556,6 @@ final class NativeWindowsSensors {
         }
     }
 
-    // ---------- Dummy 实现（Linux 下使用） ----------
     private static final class DummyGpuEngineSampler implements GpuEngineSampler {
         @Override
         public double sample(SensorAccumulator sensors) {
@@ -568,7 +563,6 @@ final class NativeWindowsSensors {
         }
     }
 
-    // ---------- Pdh 辅助接口和结构（保留，仅 Windows 使用） ----------
     private interface PdhExtra extends StdCallLibrary {
         PdhExtra INSTANCE = Native.load("Pdh", PdhExtra.class, W32APIOptions.DEFAULT_OPTIONS);
 
