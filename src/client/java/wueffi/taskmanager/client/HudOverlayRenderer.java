@@ -1,8 +1,5 @@
 package wueffi.taskmanager.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
 import wueffi.taskmanager.client.util.ConfigManager;
 
 import java.util.ArrayList;
@@ -13,6 +10,9 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Supplier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public final class HudOverlayRenderer {
 
@@ -53,9 +53,9 @@ public final class HudOverlayRenderer {
     private HudOverlayRenderer() {
     }
 
-    public static void render(DrawContext ctx) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.options.hudHidden || client.currentScreen instanceof TaskManagerScreen) {
+    public static void render(GuiGraphicsExtractor ctx) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.options.hideGui || client.screen instanceof TaskManagerScreen) {
             return;
         }
 
@@ -83,7 +83,7 @@ public final class HudOverlayRenderer {
             }
 
             HudLayoutCache layout = prepareHudLayout(client, profilerManager, snapshot, frame, memory, system, highestFinding, latestFrameMs, actionableWarning, alertColor);
-            TextRenderer textRenderer = client.textRenderer;
+            Font textRenderer = client.font;
             int backgroundColor = applyHudTransparency(BG);
             int borderFillColor = applyHudTransparency(layout.borderColor());
             int dividerColor = applyHudTransparency(0x443A3F46);
@@ -94,9 +94,9 @@ public final class HudOverlayRenderer {
             ctx.fill(layout.x(), layout.y() + layout.height() - 1, layout.x() + layout.width(), layout.y() + layout.height(), borderFillColor);
             ctx.fill(layout.x(), layout.y() + HEADER_HEIGHT, layout.x() + layout.width(), layout.y() + HEADER_HEIGHT + 1, dividerColor);
 
-            ctx.drawText(textRenderer, "Task Manager", layout.x() + PADDING, layout.y() + 5, actionableWarning ? HEADER : DIM, false);
+            ctx.text(textRenderer, "Task Manager", layout.x() + PADDING, layout.y() + 5, actionableWarning ? HEADER : DIM, false);
             String modeText = snapshot.mode().name().replace('_', ' ');
-            ctx.drawText(textRenderer, modeText, layout.x() + layout.width() - PADDING - textRenderer.getWidth(modeText), layout.y() + 5, actionableWarning ? alertColor : DIM, false);
+            ctx.text(textRenderer, modeText, layout.x() + layout.width() - PADDING - textRenderer.width(modeText), layout.y() + 5, actionableWarning ? alertColor : DIM, false);
 
             int rowY = layout.y() + HEADER_HEIGHT + 6;
             for (Row row : layout.rows()) {
@@ -115,16 +115,16 @@ public final class HudOverlayRenderer {
         }
     }
 
-    private static void renderPerformanceAlertBanner(DrawContext ctx, MinecraftClient client, ProfilerManager profilerManager) {
+    private static void renderPerformanceAlertBanner(GuiGraphicsExtractor ctx, Minecraft client, ProfilerManager profilerManager) {
         ProfilerManager.PerformanceAlert alert = profilerManager.getLatestPerformanceAlert();
         if (alert == null) {
             return;
         }
-        TextRenderer textRenderer = client.textRenderer;
+        Font textRenderer = client.font;
         String label = alert.label() + " alert";
-        String message = textRenderer.trimToWidth(alert.message(), Math.max(220, client.getWindow().getScaledWidth() - 80));
-        int width = Math.min(client.getWindow().getScaledWidth() - 24, Math.max(240, textRenderer.getWidth(message) + 24));
-        int x = Math.max(12, (client.getWindow().getScaledWidth() - width) / 2);
+        String message = textRenderer.plainSubstrByWidth(alert.message(), Math.max(220, client.getWindow().getGuiScaledWidth() - 80));
+        int width = Math.min(client.getWindow().getGuiScaledWidth() - 24, Math.max(240, textRenderer.width(message) + 24));
+        int x = Math.max(12, (client.getWindow().getGuiScaledWidth() - width) / 2);
         int y = 10;
         int bg = applyHudTransparency(profilerManager.isPerformanceAlertFlashActive() ? 0xCC5B1717 : 0xB0331A1A);
         int border = severityColor(alert.severity(), true);
@@ -133,13 +133,13 @@ public final class HudOverlayRenderer {
         ctx.fill(x, y + 29, x + width, y + 30, border);
         ctx.fill(x, y, x + 1, y + 30, border);
         ctx.fill(x + width - 1, y, x + width, y + 30, border);
-        ctx.drawText(textRenderer, label, x + 8, y + 5, HEADER, false);
-        ctx.drawText(textRenderer, message, x + 8, y + 17, TEXT, false);
+        ctx.text(textRenderer, label, x + 8, y + 5, HEADER, false);
+        ctx.text(textRenderer, message, x + 8, y + 17, TEXT, false);
     }
 
-    private static HudLayoutCache prepareHudLayout(MinecraftClient client, ProfilerManager profilerManager, ProfilerManager.ProfilerSnapshot snapshot, FrameTimelineProfiler frame, MemoryProfiler.Snapshot memory, SystemMetricsProfiler.Snapshot system, ProfilerManager.RuleFinding highestFinding, double latestFrameMs, boolean actionableWarning, int alertColor) {
-        int screenW = client.getWindow().getScaledWidth();
-        int screenH = client.getWindow().getScaledHeight();
+    private static HudLayoutCache prepareHudLayout(Minecraft client, ProfilerManager profilerManager, ProfilerManager.ProfilerSnapshot snapshot, FrameTimelineProfiler frame, MemoryProfiler.Snapshot memory, SystemMetricsProfiler.Snapshot system, ProfilerManager.RuleFinding highestFinding, double latestFrameMs, boolean actionableWarning, int alertColor) {
+        int screenW = client.getWindow().getGuiScaledWidth();
+        int screenH = client.getWindow().getGuiScaledHeight();
         int columns = ConfigManager.getHudLayoutMode().columns();
         int configHash = computeHudConfigHash();
         if (cachedLayout != null
@@ -175,7 +175,7 @@ public final class HudOverlayRenderer {
 
         int maxContentWidth = Math.max(160, screenW - 16 - (PADDING * 2));
         int cellWidth = getCellWidth(columns, maxContentWidth);
-        List<Entry> layoutEntries = normalizeEntriesForColumns(entries, client.textRenderer, columns, cellWidth, maxContentWidth);
+        List<Entry> layoutEntries = normalizeEntriesForColumns(entries, client.font, columns, cellWidth, maxContentWidth);
         List<Row> rows = buildRows(layoutEntries, columns);
         int contentWidth = Math.min(maxContentWidth, columns == 1 ? cellWidth : (columns * cellWidth) + ((columns - 1) * GAP));
         int width = contentWidth + (PADDING * 2);
@@ -412,7 +412,7 @@ public final class HudOverlayRenderer {
         return Math.max(96, Math.min(preferredWidth, available / columns));
     }
 
-    private static List<Entry> normalizeEntriesForColumns(List<Entry> entries, TextRenderer textRenderer, int columns, int cellWidth, int contentWidth) {
+    private static List<Entry> normalizeEntriesForColumns(List<Entry> entries, Font textRenderer, int columns, int cellWidth, int contentWidth) {
         if (columns <= 1) {
             return entries;
         }
@@ -434,19 +434,19 @@ public final class HudOverlayRenderer {
         return normalized;
     }
 
-    private static int estimateEntryWidth(TextRenderer textRenderer, Entry entry, boolean fullWidth) {
-        int preferredLabelWidth = Math.max(LABEL_WIDTH, textRenderer.getWidth(entry.label()) + LABEL_VALUE_GAP);
+    private static int estimateEntryWidth(Font textRenderer, Entry entry, boolean fullWidth) {
+        int preferredLabelWidth = Math.max(LABEL_WIDTH, textRenderer.width(entry.label()) + LABEL_VALUE_GAP);
         int maxLabelWidth = Math.max(LABEL_WIDTH, fullWidth ? 120 : 92);
         int labelWidth = Math.min(preferredLabelWidth, maxLabelWidth);
-        return labelWidth + textRenderer.getWidth(entry.value()) + VALUE_RIGHT_PADDING;
+        return labelWidth + textRenderer.width(entry.value()) + VALUE_RIGHT_PADDING;
     }
 
-    private static void drawEntry(DrawContext ctx, TextRenderer textRenderer, int x, int y, int width, Entry entry, boolean fullWidth) {
+    private static void drawEntry(GuiGraphicsExtractor ctx, Font textRenderer, int x, int y, int width, Entry entry, boolean fullWidth) {
         int labelColor = entry.color() == CRITICAL ? HEADER : DIM;
         int maxLabelWidth = Math.max(LABEL_WIDTH, fullWidth ? width / 3 : width / 2);
         String label = trimWithEllipsis(textRenderer, entry.label(), maxLabelWidth);
-        ctx.drawText(textRenderer, label, x, y, labelColor, false);
-        int preferredLabelWidth = Math.max(LABEL_WIDTH, textRenderer.getWidth(label) + LABEL_VALUE_GAP);
+        ctx.text(textRenderer, label, x, y, labelColor, false);
+        int preferredLabelWidth = Math.max(LABEL_WIDTH, textRenderer.width(label) + LABEL_VALUE_GAP);
         int labelWidth = Math.min(preferredLabelWidth, maxLabelWidth);
         int valueX = x + labelWidth;
         int valueWidth = Math.max(24, width - (valueX - x) - VALUE_RIGHT_PADDING);
@@ -455,10 +455,10 @@ public final class HudOverlayRenderer {
             return;
         }
         String value = trimWithEllipsis(textRenderer, entry.value(), valueWidth);
-        ctx.drawText(textRenderer, value, valueX, y, entry.color(), false);
+        ctx.text(textRenderer, value, valueX, y, entry.color(), false);
     }
 
-    private static void drawSegmentedValue(DrawContext ctx, TextRenderer textRenderer, int x, int y, int width, List<ValueSegment> segments, int fallbackColor) {
+    private static void drawSegmentedValue(GuiGraphicsExtractor ctx, Font textRenderer, int x, int y, int width, List<ValueSegment> segments, int fallbackColor) {
         int usedWidth = 0;
         for (int i = 0; i < segments.size(); i++) {
             int remainingWidth = width - usedWidth;
@@ -471,34 +471,34 @@ public final class HudOverlayRenderer {
                 continue;
             }
             boolean last = i == segments.size() - 1;
-            String shown = last ? trimWithEllipsis(textRenderer, text, remainingWidth) : textRenderer.trimToWidth(text, remainingWidth);
+            String shown = last ? trimWithEllipsis(textRenderer, text, remainingWidth) : textRenderer.plainSubstrByWidth(text, remainingWidth);
             if (shown.isEmpty()) {
                 return;
             }
-            ctx.drawText(textRenderer, shown, x + usedWidth, y, segment.color(), false);
-            usedWidth += textRenderer.getWidth(shown);
+            ctx.text(textRenderer, shown, x + usedWidth, y, segment.color(), false);
+            usedWidth += textRenderer.width(shown);
             if (!shown.equals(text)) {
                 return;
             }
         }
         if (usedWidth == 0) {
-            ctx.drawText(textRenderer, trimWithEllipsis(textRenderer, "n/a", width), x, y, fallbackColor, false);
+            ctx.text(textRenderer, trimWithEllipsis(textRenderer, "n/a", width), x, y, fallbackColor, false);
         }
     }
 
-    private static String trimWithEllipsis(TextRenderer textRenderer, String value, int width) {
+    private static String trimWithEllipsis(Font textRenderer, String value, int width) {
         if (value == null || value.isEmpty() || width <= 0) {
             return "";
         }
-        if (textRenderer.getWidth(value) <= width) {
+        if (textRenderer.width(value) <= width) {
             return value;
         }
         String ellipsis = "...";
-        int ellipsisWidth = textRenderer.getWidth(ellipsis);
+        int ellipsisWidth = textRenderer.width(ellipsis);
         if (ellipsisWidth >= width) {
-            return textRenderer.trimToWidth(ellipsis, width);
+            return textRenderer.plainSubstrByWidth(ellipsis, width);
         }
-        return textRenderer.trimToWidth(value, Math.max(0, width - ellipsisWidth)) + ellipsis;
+        return textRenderer.plainSubstrByWidth(value, Math.max(0, width - ellipsisWidth)) + ellipsis;
     }
 
     private static String displayedFpsText(FrameTimelineProfiler frame) {

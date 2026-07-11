@@ -3,16 +3,16 @@ package wueffi.taskmanager.client;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.Holder;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import wueffi.taskmanager.client.AttributionModelBuilder.EffectiveCpuAttribution;
 import wueffi.taskmanager.client.AttributionModelBuilder.EffectiveGpuAttribution;
 import wueffi.taskmanager.client.AttributionModelBuilder.EffectiveMemoryAttribution;
@@ -734,7 +734,7 @@ public class ProfilerManager {
         publishSnapshot(true);
     }
 
-    public void onClientTickEnd(MinecraftClient client) {
+    public void onClientTickEnd(Minecraft client) {
         long selfCostStartedAt = System.nanoTime();
         try {
             WorldScanResult worldScan = sampleWorldData(client);
@@ -746,7 +746,7 @@ public class ProfilerManager {
             String collectorGovernorMode = getCollectorGovernorMode();
 
             boolean selfProtecting = "self-protect".equals(collectorGovernorMode);
-            if ((!selfProtecting && shouldCollectFrameMetrics()) || sessionLogging || screenOpen || (client.world != null && client.world.getTime() % 200 == 0)) {
+            if ((!selfProtecting && shouldCollectFrameMetrics()) || sessionLogging || screenOpen || (client.level != null && client.level.getGameTime() % 200 == 0)) {
                 MemoryProfiler.getInstance().sampleJvm();
             }
             MemoryProfiler.Snapshot memorySnapshot = MemoryProfiler.getInstance().getDetailedSnapshot();
@@ -811,7 +811,7 @@ public class ProfilerManager {
     }
 
     public java.util.List<String> getEnabledResourcePackNames() {
-        return detectEnabledResourcePacks(MinecraftClient.getInstance());
+        return detectEnabledResourcePacks(Minecraft.getInstance());
     }
 
     public String getGraphicsPipelineSummary() {
@@ -946,34 +946,34 @@ public class ProfilerManager {
         );
     }
 
-    void notifyExportFinished(MinecraftClient client, ExportResult result) {
+    void notifyExportFinished(Minecraft client, ExportResult result) {
         if (client.player == null) {
             return;
         }
-        client.player.sendMessage(Text.literal("Task Manager: " + result.status()), false);
+        client.player.sendSystemMessage(Component.literal("Task Manager: " + result.status()));
         if (result.htmlReport() != null) {
-            Text openReport = Text.literal("[Open Session Report]")
+            Component openReport = Component.literal("[Open Session Report]")
                     .setStyle(Style.EMPTY
-                            .withColor(Formatting.AQUA)
-                            .withUnderline(true)
+                            .withColor(ChatFormatting.AQUA)
+                            .withUnderlined(true)
                             .withClickEvent(new ClickEvent.OpenFile(result.htmlReport().toAbsolutePath().toString())));
-            client.player.sendMessage(openReport, false);
+            client.player.sendSystemMessage(openReport);
         }
         if (result.chromeTrace() != null) {
-            Text openTrace = Text.literal("[Open Chrome Trace]")
+            Component openTrace = Component.literal("[Open Chrome Trace]")
                     .setStyle(Style.EMPTY
-                            .withColor(Formatting.GOLD)
-                            .withUnderline(true)
+                            .withColor(ChatFormatting.GOLD)
+                            .withUnderlined(true)
                             .withClickEvent(new ClickEvent.OpenFile(result.chromeTrace().toAbsolutePath().toString())));
-            client.player.sendMessage(openTrace, false);
+            client.player.sendSystemMessage(openTrace);
         }
         if (result.directory() != null) {
-            Text openFolder = Text.literal("[Open Session Logs Folder]")
+            Component openFolder = Component.literal("[Open Session Logs Folder]")
                     .setStyle(Style.EMPTY
-                            .withColor(Formatting.GREEN)
-                            .withUnderline(true)
+                            .withColor(ChatFormatting.GREEN)
+                            .withUnderlined(true)
                             .withClickEvent(new ClickEvent.OpenFile(result.directory().toAbsolutePath().toString())));
-            client.player.sendMessage(openFolder, false);
+            client.player.sendSystemMessage(openFolder);
         }
     }
 
@@ -1324,7 +1324,7 @@ public class ProfilerManager {
     }
 
     private ExportMetadata buildExportMetadata() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         String taskManagerVersion = FabricLoader.getInstance().getModContainer("taskmanager")
                 .map(mod -> mod.getMetadata().getVersion().getFriendlyString())
                 .orElse("unknown");
@@ -1338,7 +1338,7 @@ public class ProfilerManager {
         SystemMetricsProfiler.Snapshot system = SystemMetricsProfiler.getInstance().getSnapshot();
         String gpuInfo = (system.gpuVendor() == null || system.gpuVendor().isBlank() ? "Unknown GPU" : system.gpuVendor())
                 + " | " + (system.gpuRenderer() == null || system.gpuRenderer().isBlank() ? "Unknown renderer" : system.gpuRenderer());
-        int guiScale = client != null ? client.options.getGuiScale().getValue() : -1;
+        int guiScale = client != null ? client.options.guiScale().get() : -1;
         java.util.List<String> modList = FabricLoader.getInstance().getAllMods().stream()
                 .map(mod -> mod.getMetadata().getId() + "@" + mod.getMetadata().getVersion().getFriendlyString())
                 .sorted()
@@ -1408,19 +1408,19 @@ public class ProfilerManager {
         return computeObservedSampleIntervalMs(capturedAtMillis, (int) sessionExpectedSampleIntervalMillis);
     }
 
-    private Map<String, Object> buildMinecraftSettings(MinecraftClient client) {
+    private Map<String, Object> buildMinecraftSettings(Minecraft client) {
         Map<String, Object> settings = new LinkedHashMap<>();
         if (client == null) return settings;
-        settings.put("renderDistance", client.options.getViewDistance().getValue());
-        settings.put("simulationDistance", client.options.getSimulationDistance().getValue());
-        settings.put("entityDistanceScale", client.options.getEntityDistanceScaling().getValue());
-        settings.put("guiScale", client.options.getGuiScale().getValue());
+        settings.put("renderDistance", client.options.renderDistance().get());
+        settings.put("simulationDistance", client.options.simulationDistance().get());
+        settings.put("entityDistanceScale", client.options.entityDistanceScaling().get());
+        settings.put("guiScale", client.options.guiScale().get());
         settings.put("vsync", readOptionValue(client.options, "getEnableVsync"));
         settings.put("maxFramerate", readOptionValue(client.options, "getMaxFps"));
         return settings;
     }
 
-    private Map<String, Object> buildGraphicsModSettings(MinecraftClient client) {
+    private Map<String, Object> buildGraphicsModSettings(Minecraft client) {
         Map<String, Object> settings = new LinkedHashMap<>();
         settings.put("irisDetected", FabricLoader.getInstance().isModLoaded("iris"));
         settings.put("sodiumDetected", FabricLoader.getInstance().isModLoaded("sodium"));
@@ -1488,7 +1488,7 @@ public class ProfilerManager {
         return null;
     }
 
-    private List<String> detectEnabledResourcePacks(MinecraftClient client) {
+    private List<String> detectEnabledResourcePacks(Minecraft client) {
         if (client == null) {
             return List.of();
         }
@@ -1525,7 +1525,7 @@ public class ProfilerManager {
         for (String methodName : List.of("getDisplayName", "getName", "getId")) {
             try {
                 Object value = profile.getClass().getMethod(methodName).invoke(profile);
-                if (value instanceof Text text) {
+                if (value instanceof Component text) {
                     return text.getString();
                 }
                 if (value != null) {
@@ -1550,7 +1550,7 @@ public class ProfilerManager {
         return null;
     }
 
-    private void evaluatePerformanceAlerts(MinecraftClient client) {
+    private void evaluatePerformanceAlerts(Minecraft client) {
         if (!ConfigManager.isPerformanceAlertsEnabled()) {
             latestPerformanceAlert = null;
             performanceAlertFlashUntilMillis = 0L;
@@ -1591,8 +1591,8 @@ public class ProfilerManager {
         lastPerformanceAlertAtMillis.put(nextAlert.key(), now);
         latestPerformanceAlert = nextAlert;
         performanceAlertFlashUntilMillis = now + 2_500L;
-        if (ConfigManager.isPerformanceAlertChatEnabled() && client != null && client.inGameHud != null) {
-            client.inGameHud.getChatHud().addMessage(Text.literal("[Task Manager] " + nextAlert.message()).formatted(Formatting.YELLOW));
+        if (ConfigManager.isPerformanceAlertChatEnabled() && client != null && client.gui != null) {
+            client.gui.getChat().addClientSystemMessage(Component.literal("[Task Manager] " + nextAlert.message()).withStyle(ChatFormatting.YELLOW));
         }
     }
 
@@ -2128,7 +2128,7 @@ public class ProfilerManager {
         events.add(event);
     }
 
-    private void enforceSessionWindow(MinecraftClient client) {
+    private void enforceSessionWindow(Minecraft client) {
         int maxSessionPoints = Math.max(60, ConfigManager.getSessionDurationSeconds() * 20);
         while (sessionHistory.size() > maxSessionPoints) {
             sessionHistory.removeFirst();
@@ -2139,7 +2139,7 @@ public class ProfilerManager {
             sessionRecordedAtMillis = System.currentTimeMillis();
             String exportStatus = exportSession();
             if (client != null && client.player != null) {
-                client.player.sendMessage(Text.literal("Task Manager: Session recorded. " + exportStatus), false);
+                client.player.sendSystemMessage(Component.literal("Task Manager: Session recorded. " + exportStatus));
             }
         }
     }
@@ -2258,7 +2258,7 @@ public class ProfilerManager {
         if (chunkPos == null) {
             return List.of();
         }
-        Deque<Integer> history = chunkActivityHistory.get(chunkKey(chunkPos.x, chunkPos.z));
+        Deque<Integer> history = chunkActivityHistory.get(chunkKey(chunkPos.x(), chunkPos.z()));
         return history == null ? List.of() : List.copyOf(history);
     }
 
@@ -2286,8 +2286,8 @@ public class ProfilerManager {
         return currentBottleneckLabel();
     }
 
-    private List<HotChunkSnapshot> sampleHotChunks(MinecraftClient client) {
-        if (client.world == null) {
+    private List<HotChunkSnapshot> sampleHotChunks(Minecraft client) {
+        if (client.level == null) {
             hotChunkHistory.clear();
             chunkActivityHistory.clear();
             return List.of();
@@ -2297,15 +2297,15 @@ public class ProfilerManager {
         Map<Long, int[]> counts = new LinkedHashMap<>();
         Map<Long, Map<String, Integer>> entityClasses = new LinkedHashMap<>();
         Map<Long, Map<String, Integer>> blockEntityClasses = new LinkedHashMap<>();
-        for (Entity entity : client.world.getEntities()) {
-            ChunkPos pos = entity.getChunkPos();
-            long key = chunkKey(pos.x, pos.z);
+        for (Entity entity : client.level.entitiesForRendering()) {
+            ChunkPos pos = entity.chunkPosition();
+            long key = chunkKey(pos.x(), pos.z());
             counts.computeIfAbsent(key, ignored -> new int[2])[0]++;
             entityClasses.computeIfAbsent(key, ignored -> new LinkedHashMap<>()).merge(entity.getClass().getSimpleName(), 1, Integer::sum);
         }
-        for (BlockEntity blockEntity : client.world.getBlockEntities()) {
-            ChunkPos pos = new ChunkPos(blockEntity.getPos());
-            long key = chunkKey(pos.x, pos.z);
+        for (BlockEntity blockEntity : client.level.getGloballyRenderedBlockEntities()) {
+            ChunkPos pos = ChunkPos.containing(blockEntity.getBlockPos());
+            long key = chunkKey(pos.x(), pos.z());
             counts.computeIfAbsent(key, ignored -> new int[2])[1]++;
             blockEntityClasses.computeIfAbsent(key, ignored -> new LinkedHashMap<>()).merge(blockEntity.getClass().getSimpleName(), 1, Integer::sum);
         }
@@ -2391,12 +2391,12 @@ public class ProfilerManager {
         return (((long) x) << 32) ^ (z & 0xffffffffL);
     }
 
-    private List<EntityHotspot> sampleEntityHotspots(MinecraftClient client) {
-        if (client.world == null) {
+    private List<EntityHotspot> sampleEntityHotspots(Minecraft client) {
+        if (client.level == null) {
             return List.of();
         }
         Map<String, Integer> counts = new LinkedHashMap<>();
-        for (Entity entity : client.world.getEntities()) {
+        for (Entity entity : client.level.entitiesForRendering()) {
             counts.merge(entity.getType().toString(), 1, Integer::sum);
         }
         return counts.entrySet().stream()
@@ -2406,12 +2406,12 @@ public class ProfilerManager {
                 .toList();
     }
 
-    private List<BlockEntityHotspot> sampleBlockEntityHotspots(MinecraftClient client) {
-        if (client.world == null) {
+    private List<BlockEntityHotspot> sampleBlockEntityHotspots(Minecraft client) {
+        if (client.level == null) {
             return List.of();
         }
         Map<String, Integer> counts = new LinkedHashMap<>();
-        for (BlockEntity blockEntity : client.world.getBlockEntities()) {
+        for (BlockEntity blockEntity : client.level.getGloballyRenderedBlockEntities()) {
             counts.merge(blockEntity.getClass().getSimpleName(), 1, Integer::sum);
         }
         return counts.entrySet().stream()
@@ -2598,7 +2598,7 @@ public class ProfilerManager {
 
 
 
-    private void captureStutterJumpSnapshot(MinecraftClient client) {
+    private void captureStutterJumpSnapshot(Minecraft client) {
         double currentStutter = FrameTimelineProfiler.getInstance().getStutterScore();
         if (currentStutter > 20.0 && lastStutterScore <= 20.0) {
             Map<String, Object> row = new LinkedHashMap<>();
@@ -2618,30 +2618,30 @@ public class ProfilerManager {
         lastStutterScore = currentStutter;
     }
 
-    private String sampleCurrentBiome(MinecraftClient client) {
+    private String sampleCurrentBiome(Minecraft client) {
         try {
-            if (client == null || client.world == null || client.player == null) {
+            if (client == null || client.level == null || client.player == null) {
                 return "unknown";
             }
-            RegistryEntry<?> biome = client.world.getBiome(client.player.getBlockPos());
-            return biome.getKey().map(key -> key.getValue().toString()).orElse("unknown");
+            Holder<?> biome = client.level.getBiome(client.player.blockPosition());
+            return biome.unwrapKey().map(key -> key.identifier().toString()).orElse("unknown");
         } catch (Throwable ignored) {
             return "unknown";
         }
     }
 
-    private List<String> sampleClosestEntities(MinecraftClient client, int limit) {
-        if (client == null || client.world == null || client.player == null) {
+    private List<String> sampleClosestEntities(Minecraft client, int limit) {
+        if (client == null || client.level == null || client.player == null) {
             return List.of();
         }
         java.util.List<Entity> entities = new java.util.ArrayList<>();
-        for (Entity entity : client.world.getEntities()) {
+        for (Entity entity : client.level.entitiesForRendering()) {
             if (entity != client.player) {
                 entities.add(entity);
             }
         }
         return entities.stream()
-                .sorted((a, b) -> Double.compare(a.squaredDistanceTo(client.player), b.squaredDistanceTo(client.player)))
+                .sorted((a, b) -> Double.compare(a.distanceToSqr(client.player), b.distanceToSqr(client.player)))
                 .limit(limit)
                 .map(entity -> entity.getName().getString())
                 .toList();
@@ -2665,8 +2665,8 @@ public class ProfilerManager {
         return row;
     }
 
-    private WorldScanResult sampleWorldData(MinecraftClient client) {
-        if (client.world == null) {
+    private WorldScanResult sampleWorldData(Minecraft client) {
+        if (client.level == null) {
             hotChunkHistory.clear();
             chunkActivityHistory.clear();
             lastWorldScanAtMillis = System.currentTimeMillis();
@@ -2690,7 +2690,7 @@ public class ProfilerManager {
         int totalEntities = 0;
         int livingEntities = 0;
         int sampledEntities = 0;
-        for (Entity entity : client.world.getEntities()) {
+        for (Entity entity : client.level.entitiesForRendering()) {
             totalEntities++;
             if (entity instanceof LivingEntity) {
                 livingEntities++;
@@ -2703,15 +2703,15 @@ public class ProfilerManager {
             sampledEntities++;
             String entityKey = entity.getType().toString();
             globalEntityCounts.merge(entityKey, 1, Integer::sum);
-            ChunkPos pos = entity.getChunkPos();
-            long key = chunkKey(pos.x, pos.z);
+            ChunkPos pos = entity.chunkPosition();
+            long key = chunkKey(pos.x(), pos.z());
             chunkCounts.computeIfAbsent(key, ignored -> new int[2])[0]++;
             chunkEntityClasses.computeIfAbsent(key, ignored -> new LinkedHashMap<>()).merge(entity.getClass().getSimpleName(), 1, Integer::sum);
         }
 
         int blockEntities = 0;
         int sampledBlockEntities = 0;
-        for (BlockEntity blockEntity : client.world.getBlockEntities()) {
+        for (BlockEntity blockEntity : client.level.getGloballyRenderedBlockEntities()) {
             blockEntities++;
             boolean includeInHotspotScan = sampledBlockEntities < MAX_WORLD_SCAN_BLOCK_ENTITIES
                     || (blockEntities - MAX_WORLD_SCAN_BLOCK_ENTITIES) % WORLD_SCAN_BLOCK_ENTITY_SAMPLE_STRIDE == 0;
@@ -2721,8 +2721,8 @@ public class ProfilerManager {
             sampledBlockEntities++;
             String blockEntityKey = blockEntity.getClass().getSimpleName();
             globalBlockEntityCounts.merge(blockEntityKey, 1, Integer::sum);
-            ChunkPos pos = new ChunkPos(blockEntity.getPos());
-            long key = chunkKey(pos.x, pos.z);
+            ChunkPos pos = ChunkPos.containing(blockEntity.getBlockPos());
+            long key = chunkKey(pos.x(), pos.z());
             chunkCounts.computeIfAbsent(key, ignored -> new int[2])[1]++;
             chunkBlockEntityClasses.computeIfAbsent(key, ignored -> new LinkedHashMap<>()).merge(blockEntityKey, 1, Integer::sum);
         }
@@ -2781,26 +2781,26 @@ public class ProfilerManager {
     }
 
 
-    private EntityCounts sampleEntityCounts(MinecraftClient client) {
-        if (client.world == null) {
+    private EntityCounts sampleEntityCounts(Minecraft client) {
+        if (client.level == null) {
             return EntityCounts.empty();
         }
 
         int total = 0;
         int living = 0;
-        for (Entity entity : client.world.getEntities()) {
+        for (Entity entity : client.level.entitiesForRendering()) {
             total++;
             if (entity instanceof LivingEntity) {
                 living++;
             }
         }
 
-        int blockEntities = client.world.getBlockEntities().size();
+        int blockEntities = client.level.getGloballyRenderedBlockEntities().size();
         return new EntityCounts(total, living, blockEntities);
     }
 
-    private ChunkCounts sampleChunkCounts(MinecraftClient client) {
-        if (client.worldRenderer == null) {
+    private ChunkCounts sampleChunkCounts(Minecraft client) {
+        if (client.levelRenderer == null) {
             return ChunkCounts.empty();
         }
 
@@ -2810,7 +2810,7 @@ public class ProfilerManager {
         }
         lastChunkCountsAtMillis = now;
 
-        String debug = client.worldRenderer.getChunksDebugString();
+        String debug = client.levelRenderer.getSectionStatistics();
         if (debug == null || debug.isBlank()) {
             return ChunkCounts.empty();
         }

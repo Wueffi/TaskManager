@@ -1,15 +1,14 @@
 package wueffi.taskmanager.client;
 
-import net.minecraft.client.gui.DrawContext;
-
 import java.util.Locale;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 final class TimelineTabRenderer {
 
     private TimelineTabRenderer() {
     }
 
-    static void render(TaskManagerScreen screen, DrawContext ctx, int x, int y, int w, int h) {
+    static void render(TaskManagerScreen screen, GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
         var textRenderer = screen.uiTextRenderer();
         screen.beginFullPageScissor(ctx, x, y, w, h);
         int graphWidth = screen.getPreferredGraphWidth(w);
@@ -21,11 +20,11 @@ final class TimelineTabRenderer {
         ProfilerManager.SessionDelta delta = manager.compareToBaseline(baseline);
         top = screen.renderSectionHeader(ctx, left, top, "Timeline", "Frame pacing, FPS lows, jitter, and spike context over the live capture window.");
         screen.drawTopChip(ctx, left, top, 96, 16, baseline != null);
-        ctx.drawText(textRenderer, "Set Baseline", left + 10, top + 4, baseline != null ? TaskManagerScreen.TEXT_PRIMARY : TaskManagerScreen.TEXT_DIM, false);
+        ctx.text(textRenderer, "Set Baseline", left + 10, top + 4, baseline != null ? TaskManagerScreen.TEXT_PRIMARY : TaskManagerScreen.TEXT_DIM, false);
         screen.drawTopChip(ctx, left + 102, top, 112, 16, false);
-        ctx.drawText(textRenderer, "Import Export", left + 114, top + 4, TaskManagerScreen.TEXT_DIM, false);
+        ctx.text(textRenderer, "Import Export", left + 114, top + 4, TaskManagerScreen.TEXT_DIM, false);
         screen.drawTopChip(ctx, left + 220, top, 74, 16, baseline != null);
-        ctx.drawText(textRenderer, "Clear", left + 244, top + 4, baseline != null ? TaskManagerScreen.TEXT_PRIMARY : TaskManagerScreen.TEXT_DIM, false);
+        ctx.text(textRenderer, "Clear", left + 244, top + 4, baseline != null ? TaskManagerScreen.TEXT_PRIMARY : TaskManagerScreen.TEXT_DIM, false);
         top += 24;
         if (baseline != null && delta != null) {
             screen.drawMetricRow(ctx, left, top, graphWidth, "Compare", String.format(Locale.ROOT,
@@ -52,7 +51,7 @@ final class TimelineTabRenderer {
         top += 18;
         screen.drawMetricRow(ctx, left, top, graphWidth, "Stutter Score", String.format(Locale.ROOT, "%.1f | %s", stutterScore, screen.stutterBand(stutterScore)));
         top += 18;
-        ctx.drawText(textRenderer, "Stutter guide", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
+        ctx.text(textRenderer, "Stutter guide", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
         top += 14;
         top = screen.renderWrappedText(ctx, left + 6, top, graphWidth - 12, "0-5 Excellent | 5-10 Good | 10-20 Noticeable | 20-35 Bad | 35+ Severe", screen.stutterBandColor(stutterScore)) + 4;
         top = screen.renderWrappedText(ctx, left + 6, top, graphWidth - 12, "Higher stutter scores mean frame pacing is less consistent even if average FPS still looks healthy.", TaskManagerScreen.TEXT_DIM) + 6;

@@ -1,6 +1,6 @@
 package wueffi.taskmanager.client.mixin;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import wueffi.taskmanager.client.TickProfiler;
 import wueffi.taskmanager.client.TaskManagerScreen;
 
-@Mixin(MinecraftClient.class)
+@Mixin(Minecraft.class)
 public class MinecraftClientMixin {
 
     @Inject(method = "tick", at = @At("HEAD"))

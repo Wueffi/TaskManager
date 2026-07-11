@@ -1,7 +1,7 @@
 package wueffi.taskmanager.client.mixin;
 
-import net.minecraft.client.gl.CompiledShader;
-import net.minecraft.client.gl.ShaderProgram;
+import com.mojang.blaze3d.opengl.GlProgram;
+import com.mojang.blaze3d.opengl.GlShaderModule;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -10,19 +10,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import wueffi.taskmanager.client.ShaderCompilationProfiler;
 import wueffi.taskmanager.client.TaskManagerScreen;
 
-@Mixin(ShaderProgram.class)
+@Mixin(GlProgram.class)
 public abstract class ShaderProgramMixin {
 
-    @Inject(method = "create", at = @At("HEAD"))
-    private static void taskmanager$beginShaderCompile(CompiledShader vertexShader, CompiledShader fragmentShader, VertexFormat vertexFormat, String debugLabel, CallbackInfoReturnable<ShaderProgram> cir) {
+    @Inject(method = "link", at = @At("HEAD"))
+    private static void taskmanager$beginShaderCompile(GlShaderModule vertexShader, GlShaderModule fragmentShader, VertexFormat vertexFormat, String debugLabel, CallbackInfoReturnable<GlProgram> cir) {
         if (!TaskManagerScreen.isLiveMetricsActive()) {
             return;
         }
         ShaderCompilationProfiler.getInstance().beginCompile(debugLabel);
     }
 
-    @Inject(method = "create", at = @At("RETURN"))
-    private static void taskmanager$endShaderCompile(CompiledShader vertexShader, CompiledShader fragmentShader, VertexFormat vertexFormat, String debugLabel, CallbackInfoReturnable<ShaderProgram> cir) {
+    @Inject(method = "link", at = @At("RETURN"))
+    private static void taskmanager$endShaderCompile(GlShaderModule vertexShader, GlShaderModule fragmentShader, VertexFormat vertexFormat, String debugLabel, CallbackInfoReturnable<GlProgram> cir) {
         if (!TaskManagerScreen.isLiveMetricsActive()) {
             return;
         }

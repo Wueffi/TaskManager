@@ -1,12 +1,11 @@
 package wueffi.taskmanager.client;
 
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 
 final class TooltipManager {
 
@@ -25,7 +24,7 @@ final class TooltipManager {
         tooltipTargets.add(new TooltipTarget(x, y, width, height, text));
     }
 
-    void render(DrawContext ctx, int mouseX, int mouseY, int screenWidth, int screenHeight, TextRenderer textRenderer, int textColor, int borderColor) {
+    void render(GuiGraphicsExtractor ctx, int mouseX, int mouseY, int screenWidth, int screenHeight, Font textRenderer, int textColor, int borderColor) {
         TooltipTarget target = null;
         for (TooltipTarget candidate : tooltipTargets) {
             if (isInside(mouseX, mouseY, candidate.x(), candidate.y(), candidate.width(), candidate.height())) {
@@ -36,10 +35,10 @@ final class TooltipManager {
             return;
         }
         int maxWidth = Math.min(320, screenWidth - 24);
-        List<OrderedText> wrapped = textRenderer.wrapLines(Text.literal(target.text()), maxWidth);
+        List<FormattedCharSequence> wrapped = textRenderer.split(Component.literal(target.text()), maxWidth);
         int widest = 0;
-        for (OrderedText line : wrapped) {
-            widest = Math.max(widest, textRenderer.getWidth(line));
+        for (FormattedCharSequence line : wrapped) {
+            widest = Math.max(widest, textRenderer.width(line));
         }
         int boxW = Math.min(maxWidth + 10, Math.max(100, widest + 10));
         int boxH = Math.max(18, wrapped.size() * 12 + 6);
@@ -51,8 +50,8 @@ final class TooltipManager {
         ctx.fill(boxX, boxY, boxX + 1, boxY + boxH, borderColor);
         ctx.fill(boxX + boxW - 1, boxY, boxX + boxW, boxY + boxH, borderColor);
         int textY = boxY + 4;
-        for (OrderedText line : wrapped) {
-            ctx.drawText(textRenderer, line, boxX + 5, textY, textColor, false);
+        for (FormattedCharSequence line : wrapped) {
+            ctx.text(textRenderer, line, boxX + 5, textY, textColor, false);
             textY += 12;
         }
     }

@@ -1,4 +1,4 @@
-![Static Badge](https://img.shields.io/badge/Version-1.2.3-blue) ![Modrinth Downloads](https://img.shields.io/modrinth/dt/taskmanager)
+![Static Badge](https://img.shields.io/badge/Version-1.3.0-blue) ![Modrinth Downloads](https://img.shields.io/modrinth/dt/taskmanager)
 
 # Task Manager
 

@@ -1,6 +1,6 @@
 package wueffi.taskmanager.client;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import wueffi.taskmanager.client.util.ConfigManager;
 
 final class SettingsTabRenderer {
@@ -8,16 +8,16 @@ final class SettingsTabRenderer {
     private SettingsTabRenderer() {
     }
 
-    static void render(TaskManagerScreen screen, DrawContext ctx, int x, int y, int w, int h, int mouseX, int mouseY) {
+    static void render(TaskManagerScreen screen, GuiGraphicsExtractor ctx, int x, int y, int w, int h, int mouseX, int mouseY) {
         var textRenderer = screen.uiTextRenderer();
         screen.beginFullPageScissor(ctx, x, y, w, h);
         int left = x + TaskManagerScreen.PADDING;
         int top = screen.getFullPageScrollTop(y);
-        ctx.drawText(textRenderer, "Settings", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
+        ctx.text(textRenderer, "Settings", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
         top += 18;
-        ctx.drawText(textRenderer, "Attribution", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
+        ctx.text(textRenderer, "Attribution", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
         screen.drawTopChip(ctx, left + 104, top - 2, 108, 16, screen.attributionHelpOpen);
-        ctx.drawText(textRenderer, "Open Guide", left + 132, top + 2, screen.attributionHelpOpen ? TaskManagerScreen.TEXT_PRIMARY : TaskManagerScreen.TEXT_DIM, false);
+        ctx.text(textRenderer, "Open Guide", left + 132, top + 2, screen.attributionHelpOpen ? TaskManagerScreen.TEXT_PRIMARY : TaskManagerScreen.TEXT_DIM, false);
         top += 18;
         top = screen.renderWrappedText(ctx, left, top, w - 24, "Raw keeps direct ownership separate. Effective folds shared/runtime buckets back into mods for easier ranking. Use Open Guide for the full measured / inferred / estimated explanation.", TaskManagerScreen.TEXT_DIM) + 10;
         screen.drawSettingRow(ctx, left, top, w - 24, "Session Logging", ProfilerManager.getInstance().isSessionLogging() ? "On" : "Off", mouseX, mouseY);
@@ -28,7 +28,7 @@ final class SettingsTabRenderer {
         top += 22;
         screen.drawSettingRow(ctx, left, top, w - 24, "Profiler Update Delay", ConfigManager.getProfilerUpdateDelayMs() + "ms", mouseX, mouseY);
         top += 32;
-        ctx.drawText(textRenderer, "HUD Settings", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
+        ctx.text(textRenderer, "HUD Settings", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
         top += 18;
         screen.drawSettingRow(ctx, left, top, w - 24, "Enabled", ConfigManager.isHudEnabled() ? "Yes" : "No", mouseX, mouseY);
         top += 22;
@@ -53,7 +53,7 @@ final class SettingsTabRenderer {
             top += 22;
             screen.drawSettingRowWithTooltip(ctx, left, top, w - 24, "Auto-Focus Alert", ConfigManager.isHudAutoFocusAlertRow() ? "On" : "Off", mouseX, mouseY, "Pins the strongest current issue to the top of the HUD instead of making you scan every row.");
             top += 20;
-            ctx.drawText(textRenderer, textRenderer.trimToWidth("Preset mode drives the HUD contents for you. Switch HUD Mode to CUSTOM to pick individual sections.", w - 24), left, top, TaskManagerScreen.TEXT_DIM, false);
+            ctx.text(textRenderer, textRenderer.plainSubstrByWidth("Preset mode drives the HUD contents for you. Switch HUD Mode to CUSTOM to pick individual sections.", w - 24), left, top, TaskManagerScreen.TEXT_DIM, false);
             top += 34;
         } else {
             screen.drawSettingRow(ctx, left, top, w - 24, "FPS", ConfigManager.isHudShowFps() ? "On" : "Off", mouseX, mouseY);
@@ -97,7 +97,7 @@ final class SettingsTabRenderer {
             screen.drawSettingRowWithTooltip(ctx, left, top, w - 24, "Auto-Focus Alert", ConfigManager.isHudAutoFocusAlertRow() ? "On" : "Off", mouseX, mouseY, "Pins the strongest current issue to the top of the HUD instead of making you scan every row.");
             top += 20;
         }
-        ctx.drawText(textRenderer, "HUD Rate Of Change", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
+        ctx.text(textRenderer, "HUD Rate Of Change", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
         top += 18;
         screen.drawSettingRow(ctx, left, top, w - 24, "Display Zero Rates", ConfigManager.isHudShowZeroRateOfChange() ? "On" : "Off", mouseX, mouseY);
         top += 22;
@@ -123,7 +123,7 @@ final class SettingsTabRenderer {
         top += 22;
         screen.drawSettingRow(ctx, left, top, w - 24, "Input Latency Rates", ConfigManager.isHudShowInputLatencyRateOfChange() ? "On" : "Off", mouseX, mouseY);
         top += 32;
-        ctx.drawText(textRenderer, "In-Game Alerts", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
+        ctx.text(textRenderer, "In-Game Alerts", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
         top += 18;
         screen.drawSettingRowWithTooltip(ctx, left, top, w - 24, "Enabled", ConfigManager.isPerformanceAlertsEnabled() ? "On" : "Off", mouseX, mouseY, "Turns lightweight performance warnings on while you play, even if the full HUD is hidden.");
         top += 22;
@@ -135,7 +135,7 @@ final class SettingsTabRenderer {
         top += 22;
         screen.drawSettingRowWithTooltip(ctx, left, top, w - 24, "Consecutive Ticks", Integer.toString(ConfigManager.getPerformanceAlertConsecutiveTicks()), mouseX, mouseY, "Requires sustained pressure for this many consecutive ticks before alerting so transient one-off spikes do not spam you.");
         top += 32;
-        ctx.drawText(textRenderer, "Table Columns", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
+        ctx.text(textRenderer, "Table Columns", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
         top += 18;
         screen.drawSettingRow(ctx, left, top, w - 24, "Tasks: %CPU", ConfigManager.isTasksColumnVisible("cpu") ? "On" : "Off", mouseX, mouseY);
         top += 22;
@@ -159,7 +159,7 @@ final class SettingsTabRenderer {
         top += 22;
         screen.drawSettingRow(ctx, left, top, w - 24, "Memory: %", ConfigManager.isMemoryColumnVisible("pct") ? "On" : "Off", mouseX, mouseY);
         top += 32;
-        ctx.drawText(textRenderer, "Graph Colours", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
+        ctx.text(textRenderer, "Graph Colours", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
         top += 18;
         screen.drawSettingRow(ctx, left, top, w - 24, "CPU Colour", screen.focusedColorSetting == TaskManagerScreen.ColorSetting.CPU ? screen.colorEditValue + "_" : screen.getColorSettingHex(TaskManagerScreen.ColorSetting.CPU), mouseX, mouseY);
         top += 22;
@@ -173,7 +173,7 @@ final class SettingsTabRenderer {
         top += 22;
         screen.drawSettingRow(ctx, left, top, w - 24, "Reset Graph Colours", "Defaults", mouseX, mouseY);
         top += 20;
-        ctx.drawText(textRenderer, textRenderer.trimToWidth("Click a colour row, type a hex value like #5EA9FF, then press Enter to save.", w - 24), left, top, TaskManagerScreen.TEXT_DIM, false);
+        ctx.text(textRenderer, textRenderer.plainSubstrByWidth("Click a colour row, type a hex value like #5EA9FF, then press Enter to save.", w - 24), left, top, TaskManagerScreen.TEXT_DIM, false);
         ctx.disableScissor();
     }
 }

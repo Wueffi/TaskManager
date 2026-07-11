@@ -1,15 +1,14 @@
 package wueffi.taskmanager.client;
 
-import net.minecraft.client.gui.DrawContext;
-
 import java.util.Map;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 final class NetworkTabRenderer {
 
     private NetworkTabRenderer() {
     }
 
-    static void render(TaskManagerScreen screen, DrawContext ctx, int x, int y, int w, int h) {
+    static void render(TaskManagerScreen screen, GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
         var textRenderer = screen.uiTextRenderer();
         SystemMetricsProfiler metrics = SystemMetricsProfiler.getInstance();
         int left = x + TaskManagerScreen.PADDING;
@@ -20,10 +19,10 @@ final class NetworkTabRenderer {
         int columnWidth = Math.max(120, (w - (TaskManagerScreen.PADDING * 2) - columnGap) / 2);
         int rightColumnX = left + columnWidth + columnGap;
         screen.beginFullPageScissor(ctx, x, y, w, h);
-        ctx.drawText(textRenderer, "Network throughput and packet/channel attribution during capture.", left, top, TaskManagerScreen.TEXT_DIM, false);
+        ctx.text(textRenderer, "Network throughput and packet/channel attribution during capture.", left, top, TaskManagerScreen.TEXT_DIM, false);
         top += 14;
         if (screen.snapshot.systemMetrics().bytesReceivedPerSecond() < 0 && screen.snapshot.systemMetrics().bytesSentPerSecond() < 0) {
-            ctx.drawText(textRenderer, "Network counters are unavailable right now. Packet attribution can still populate while throughput stays unavailable.", left, top, TaskManagerScreen.ACCENT_YELLOW, false);
+            ctx.text(textRenderer, "Network counters are unavailable right now. Packet attribution can still populate while throughput stays unavailable.", left, top, TaskManagerScreen.ACCENT_YELLOW, false);
             top += 14;
         }
         screen.drawMetricRow(ctx, left, top, w - 16, "Inbound", screen.formatBytesPerSecond(screen.snapshot.systemMetrics().bytesReceivedPerSecond()));
@@ -37,8 +36,8 @@ final class NetworkTabRenderer {
 
         java.util.List<NetworkPacketProfiler.Snapshot> packetHistory = NetworkPacketProfiler.getInstance().getHistory();
         NetworkPacketProfiler.Snapshot latestPackets = packetHistory.isEmpty() ? null : packetHistory.get(packetHistory.size() - 1);
-        ctx.drawText(textRenderer, "Inbound categories", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
-        ctx.drawText(textRenderer, "Outbound categories", rightColumnX, top, TaskManagerScreen.TEXT_PRIMARY, false);
+        ctx.text(textRenderer, "Inbound categories", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
+        ctx.text(textRenderer, "Outbound categories", rightColumnX, top, TaskManagerScreen.TEXT_PRIMARY, false);
         top += 14;
         int categoryHeight = Math.max(
                 screen.renderPacketBreakdownColumn(ctx, left, top, columnWidth, latestPackets != null ? latestPackets.inboundByCategory() : Map.of()),
@@ -46,8 +45,8 @@ final class NetworkTabRenderer {
         );
         top += categoryHeight + 12;
 
-        ctx.drawText(textRenderer, "Inbound packet types", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
-        ctx.drawText(textRenderer, "Outbound packet types", rightColumnX, top, TaskManagerScreen.TEXT_PRIMARY, false);
+        ctx.text(textRenderer, "Inbound packet types", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
+        ctx.text(textRenderer, "Outbound packet types", rightColumnX, top, TaskManagerScreen.TEXT_PRIMARY, false);
         top += 14;
         int typeHeight = Math.max(
                 screen.renderPacketBreakdownColumn(ctx, left, top, columnWidth, latestPackets != null ? latestPackets.inboundByType() : Map.of()),
@@ -55,7 +54,7 @@ final class NetworkTabRenderer {
         );
         top += typeHeight + 12;
 
-        ctx.drawText(textRenderer, "Packet spike bookmarks", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
+        ctx.text(textRenderer, "Packet spike bookmarks", left, top, TaskManagerScreen.TEXT_PRIMARY, false);
         top += 14;
         top += screen.renderPacketSpikeBookmarks(ctx, left, top, w - 16, NetworkPacketProfiler.getInstance().getSpikeHistory());
         ctx.disableScissor();

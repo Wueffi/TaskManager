@@ -1,6 +1,6 @@
 package wueffi.taskmanager.client.mixin;
 
-import net.minecraft.world.gen.chunk.ChunkGenerator;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -13,22 +13,22 @@ import wueffi.taskmanager.client.util.ModClassIndex;
 @Mixin(ChunkGenerator.class)
 public abstract class ChunkGeneratorMixin {
 
-    @Inject(method = "populateBiomes", at = @At("HEAD"))
+    @Inject(method = "createBiomes", at = @At("HEAD"))
     private void taskmanager$beginPopulateBiomes(CallbackInfoReturnable<?> cir) {
         taskmanager$beginPhase("populateBiomes");
     }
 
-    @Inject(method = "populateBiomes", at = @At("RETURN"))
+    @Inject(method = "createBiomes", at = @At("RETURN"))
     private void taskmanager$endPopulateBiomes(CallbackInfoReturnable<?> cir) {
         taskmanager$endPhase();
     }
 
-    @Inject(method = "generateFeatures", at = @At("HEAD"))
+    @Inject(method = "applyBiomeDecoration", at = @At("HEAD"))
     private void taskmanager$beginGenerateFeatures(CallbackInfo ci) {
         taskmanager$beginPhase("generateFeatures");
     }
 
-    @Inject(method = "generateFeatures", at = @At("RETURN"))
+    @Inject(method = "applyBiomeDecoration", at = @At("RETURN"))
     private void taskmanager$endGenerateFeatures(CallbackInfo ci) {
         taskmanager$endPhase();
     }

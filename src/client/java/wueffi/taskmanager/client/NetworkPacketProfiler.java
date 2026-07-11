@@ -1,12 +1,11 @@
 package wueffi.taskmanager.client;
 
-import net.minecraft.network.packet.Packet;
-
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.network.protocol.Packet;
 
 public class NetworkPacketProfiler {
 

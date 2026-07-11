@@ -191,6 +191,17 @@ public class CpuSamplingProfiler {
             return;
         }
 
+        ModExecutionContext.ActiveContext activeContext = ModExecutionContext.getActiveContext(threadId);
+        if (activeContext != null && activeContext.modId() != null && !activeContext.modId().isBlank()) {
+            String threadName = threadSnapshots.getLast().threadName();
+            SampleAttribution attribution = new SampleAttribution(activeContext.modId(), threadName, activeContext.reason());
+            recordAttribution(attribution, cpuBudgetNanos);
+            if (isRenderThread(threadName)) {
+                RenderPhaseProfiler.getInstance().recordLikelyOwnerSample(threadId, activeContext.modId(), activeContext.reason());
+            }
+            return;
+        }
+
         List<SampleAttribution> attributions = new ArrayList<>(threadSnapshots.size());
         for (ThreadSnapshotCollector.ThreadStackSnapshot threadSnapshot : threadSnapshots) {
             StackTraceElement[] stack = threadSnapshot.stack();

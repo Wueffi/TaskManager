@@ -1,15 +1,25 @@
 package wueffi.taskmanager.client.mixin;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.framegraph.FrameGraphBuilder;
+import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.CloudStatus;
+import net.minecraft.client.Camera;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.SubmitNodeStorage;
+import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.state.level.LevelRenderState;
+import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Unique;
 import wueffi.taskmanager.client.RenderPhaseProfiler;
-import wueffi.taskmanager.client.TaskManagerScreen;
 import wueffi.taskmanager.client.util.GpuTimer;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.util.ObjectAllocator;
-import org.joml.Matrix4f;
+import org.joml.Matrix4fc;
 import org.joml.Vector4f;
 import org.spongepowered.asm.mixin.Mixin;
 import wueffi.taskmanager.client.ProfilerManager;
@@ -17,7 +27,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(WorldRenderer.class)
+@Mixin(LevelRenderer.class)
 public class WorldRendererMixin {
 
     @Unique
@@ -55,45 +65,43 @@ public class WorldRendererMixin {
     }
 
     @Inject(
-            method = "render",
+            method = "renderLevel",
             at = @At("HEAD")
     )
     private void taskmanager$onRenderHead(
-            ObjectAllocator allocator,
-            RenderTickCounter tickCounter,
+            GraphicsResourceAllocator allocator,
+            DeltaTracker tickCounter,
             boolean renderBlockOutline,
-            Camera camera,
-            Matrix4f positionMatrix,
-            Matrix4f matrix4f,          // NEW PARAM
-            Matrix4f projectionMatrix,
+            CameraRenderState cameraRenderState,
+            Matrix4fc projectionMatrix,
             GpuBufferSlice fog,
             Vector4f fogColor,
             boolean shouldRenderSky,
+            ChunkSectionsToRender chunkSectionsToRender,
             CallbackInfo ci) {
         taskmanager$beginPhase("worldRenderer.render");
     }
 
     @Inject(
-            method = "render",
+            method = "renderLevel",
             at = @At("TAIL")
     )
     private void taskmanager$onRenderTail(
-            ObjectAllocator allocator,
-            RenderTickCounter tickCounter,
+            GraphicsResourceAllocator allocator,
+            DeltaTracker tickCounter,
             boolean renderBlockOutline,
-            Camera camera,
-            Matrix4f positionMatrix,
-            Matrix4f matrix4f,          // NEW PARAM
-            Matrix4f projectionMatrix,
+            CameraRenderState cameraRenderState,
+            Matrix4fc projectionMatrix,
             GpuBufferSlice fog,
             Vector4f fogColor,
             boolean shouldRenderSky,
+            ChunkSectionsToRender chunkSectionsToRender,
             CallbackInfo ci) {
         taskmanager$endPhase("worldRenderer.render");
     }
 
     @Inject(
-        method = "drawEntityOutlinesFramebuffer",
+        method = "doEntityOutline",
         at = @At("HEAD")
     )
     private void taskmanager$onOutlinesHead(CallbackInfo ci) {
@@ -101,60 +109,60 @@ public class WorldRendererMixin {
     }
 
     @Inject(
-        method = "drawEntityOutlinesFramebuffer",
+        method = "doEntityOutline",
         at = @At("TAIL")
     )
     private void taskmanager$onOutlinesTail(CallbackInfo ci) {
         taskmanager$endPhase("worldRenderer.entityOutlines");
     }
 
-    @Inject(method = "renderWeather", at = @At("HEAD"), require = 0)
-    private void taskmanager$onRenderWeatherHead(CallbackInfo ci) {
+    @Inject(method = "addWeatherPass", at = @At("HEAD"), require = 0)
+    private void taskmanager$onRenderWeatherHead(FrameGraphBuilder frameGraphBuilder, GpuBufferSlice fog, CallbackInfo ci) {
         taskmanager$beginPhase("worldRenderer.renderWeather");
     }
 
-    @Inject(method = "renderWeather", at = @At("TAIL"), require = 0)
-    private void taskmanager$onRenderWeatherTail(CallbackInfo ci) {
+    @Inject(method = "addWeatherPass", at = @At("TAIL"), require = 0)
+    private void taskmanager$onRenderWeatherTail(FrameGraphBuilder frameGraphBuilder, GpuBufferSlice fog, CallbackInfo ci) {
         taskmanager$endPhase("worldRenderer.renderWeather");
     }
 
-    @Inject(method = "renderSky", at = @At("HEAD"), require = 0)
-    private void taskmanager$onRenderSkyHead(CallbackInfo ci) {
+    @Inject(method = "addSkyPass", at = @At("HEAD"), require = 0)
+    private void taskmanager$onRenderSkyHead(FrameGraphBuilder frameGraphBuilder, CameraRenderState cameraRenderState, GpuBufferSlice fog, CallbackInfo ci) {
         taskmanager$beginPhase("worldRenderer.renderSky");
     }
 
-    @Inject(method = "renderSky", at = @At("TAIL"), require = 0)
-    private void taskmanager$onRenderSkyTail(CallbackInfo ci) {
+    @Inject(method = "addSkyPass", at = @At("TAIL"), require = 0)
+    private void taskmanager$onRenderSkyTail(FrameGraphBuilder frameGraphBuilder, CameraRenderState cameraRenderState, GpuBufferSlice fog, CallbackInfo ci) {
         taskmanager$endPhase("worldRenderer.renderSky");
     }
 
-    @Inject(method = "renderClouds", at = @At("HEAD"), require = 0)
-    private void taskmanager$onRenderCloudsHead(CallbackInfo ci) {
+    @Inject(method = "addCloudsPass", at = @At("HEAD"), require = 0)
+    private void taskmanager$onRenderCloudsHead(FrameGraphBuilder frameGraphBuilder, CloudStatus cloudStatus, Vec3 cameraPos, long ticks, float tickProgress, int color, float cloudHeight, int cloudRange, CallbackInfo ci) {
         taskmanager$beginPhase("worldRenderer.renderClouds");
     }
 
-    @Inject(method = "renderClouds", at = @At("TAIL"), require = 0)
-    private void taskmanager$onRenderCloudsTail(CallbackInfo ci) {
+    @Inject(method = "addCloudsPass", at = @At("TAIL"), require = 0)
+    private void taskmanager$onRenderCloudsTail(FrameGraphBuilder frameGraphBuilder, CloudStatus cloudStatus, Vec3 cameraPos, long ticks, float tickProgress, int color, float cloudHeight, int cloudRange, CallbackInfo ci) {
         taskmanager$endPhase("worldRenderer.renderClouds");
     }
 
-    @Inject(method = "renderParticles", at = @At("HEAD"), require = 0)
+    @Inject(method = "addParticlesPass", at = @At("HEAD"), require = 0)
     private void taskmanager$onRenderParticlesHead(CallbackInfo ci) {
         taskmanager$beginPhase("worldRenderer.renderParticles");
     }
 
-    @Inject(method = "renderParticles", at = @At("TAIL"), require = 0)
+    @Inject(method = "addParticlesPass", at = @At("TAIL"), require = 0)
     private void taskmanager$onRenderParticlesTail(CallbackInfo ci) {
         taskmanager$endPhase("worldRenderer.renderParticles");
     }
 
-    @Inject(method = "renderMain", at = @At("HEAD"), require = 0)
-    private void taskmanager$onRenderMainHead(CallbackInfo ci) {
+    @Inject(method = "addMainPass", at = @At("HEAD"), require = 0)
+    private void taskmanager$onRenderMainHead(FrameGraphBuilder frameGraphBuilder, Frustum frustum, Matrix4fc projectionMatrix, GpuBufferSlice fog, boolean renderBlockOutline, LevelRenderState levelRenderState, DeltaTracker deltaTracker, ProfilerFiller profiler, ChunkSectionsToRender chunkSectionsToRender, CallbackInfo ci) {
         taskmanager$beginPhase("worldRenderer.renderMain");
     }
 
-    @Inject(method = "renderMain", at = @At("TAIL"), require = 0)
-    private void taskmanager$onRenderMainTail(CallbackInfo ci) {
+    @Inject(method = "addMainPass", at = @At("TAIL"), require = 0)
+    private void taskmanager$onRenderMainTail(FrameGraphBuilder frameGraphBuilder, Frustum frustum, Matrix4fc projectionMatrix, GpuBufferSlice fog, boolean renderBlockOutline, LevelRenderState levelRenderState, DeltaTracker deltaTracker, ProfilerFiller profiler, ChunkSectionsToRender chunkSectionsToRender, CallbackInfo ci) {
         taskmanager$endPhase("worldRenderer.renderMain");
     }
 
@@ -168,43 +176,43 @@ public class WorldRendererMixin {
         taskmanager$endPhase("worldRenderer.renderEntities");
     }
 
-    @Inject(method = "renderBlockEntities", at = @At("HEAD"), require = 0)
-    private void taskmanager$onRenderBlockEntitiesHead(CallbackInfo ci) {
+    @Inject(method = "submitBlockEntities", at = @At("HEAD"), require = 0)
+    private void taskmanager$onRenderBlockEntitiesHead(PoseStack poseStack, LevelRenderState levelRenderState, SubmitNodeStorage submitNodeStorage, CallbackInfo ci) {
         taskmanager$beginPhase("worldRenderer.renderBlockEntities");
     }
 
-    @Inject(method = "renderBlockEntities", at = @At("TAIL"), require = 0)
-    private void taskmanager$onRenderBlockEntitiesTail(CallbackInfo ci) {
+    @Inject(method = "submitBlockEntities", at = @At("TAIL"), require = 0)
+    private void taskmanager$onRenderBlockEntitiesTail(PoseStack poseStack, LevelRenderState levelRenderState, SubmitNodeStorage submitNodeStorage, CallbackInfo ci) {
         taskmanager$endPhase("worldRenderer.renderBlockEntities");
     }
 
-    @Inject(method = "fillEntityRenderStates", at = @At("HEAD"), require = 0)
-    private void taskmanager$onFillEntityRenderStatesHead(CallbackInfo ci) {
+    @Inject(method = "extractVisibleEntities", at = @At("HEAD"), require = 0)
+    private void taskmanager$onFillEntityRenderStatesHead(Camera camera, Frustum frustum, DeltaTracker deltaTracker, LevelRenderState levelRenderState, CallbackInfo ci) {
         taskmanager$beginCpuOnlyPhase("worldRenderer.fillEntityRenderStates");
     }
 
-    @Inject(method = "fillEntityRenderStates", at = @At("TAIL"), require = 0)
-    private void taskmanager$onFillEntityRenderStatesTail(CallbackInfo ci) {
+    @Inject(method = "extractVisibleEntities", at = @At("TAIL"), require = 0)
+    private void taskmanager$onFillEntityRenderStatesTail(Camera camera, Frustum frustum, DeltaTracker deltaTracker, LevelRenderState levelRenderState, CallbackInfo ci) {
         taskmanager$endCpuOnlyPhase("worldRenderer.fillEntityRenderStates");
     }
 
-    @Inject(method = "pushEntityRenders", at = @At("HEAD"), require = 0)
-    private void taskmanager$onPushEntityRendersHead(CallbackInfo ci) {
+    @Inject(method = "submitEntities", at = @At("HEAD"), require = 0)
+    private void taskmanager$onPushEntityRendersHead(PoseStack poseStack, LevelRenderState levelRenderState, SubmitNodeCollector submitNodeCollector, CallbackInfo ci) {
         taskmanager$beginCpuOnlyPhase("worldRenderer.pushEntityRenders");
     }
 
-    @Inject(method = "pushEntityRenders", at = @At("TAIL"), require = 0)
-    private void taskmanager$onPushEntityRendersTail(CallbackInfo ci) {
+    @Inject(method = "submitEntities", at = @At("TAIL"), require = 0)
+    private void taskmanager$onPushEntityRendersTail(PoseStack poseStack, LevelRenderState levelRenderState, SubmitNodeCollector submitNodeCollector, CallbackInfo ci) {
         taskmanager$endCpuOnlyPhase("worldRenderer.pushEntityRenders");
     }
 
-    @Inject(method = "fillBlockEntityRenderStates", at = @At("HEAD"), require = 0)
-    private void taskmanager$onFillBlockEntityRenderStatesHead(CallbackInfo ci) {
+    @Inject(method = "extractVisibleBlockEntities", at = @At("HEAD"), require = 0)
+    private void taskmanager$onFillBlockEntityRenderStatesHead(Camera camera, float tickProgress, LevelRenderState levelRenderState, CallbackInfo ci) {
         taskmanager$beginCpuOnlyPhase("worldRenderer.fillBlockEntityRenderStates");
     }
 
-    @Inject(method = "fillBlockEntityRenderStates", at = @At("TAIL"), require = 0)
-    private void taskmanager$onFillBlockEntityRenderStatesTail(CallbackInfo ci) {
+    @Inject(method = "extractVisibleBlockEntities", at = @At("TAIL"), require = 0)
+    private void taskmanager$onFillBlockEntityRenderStatesTail(Camera camera, float tickProgress, LevelRenderState levelRenderState, CallbackInfo ci) {
         taskmanager$endCpuOnlyPhase("worldRenderer.fillBlockEntityRenderStates");
     }
 }

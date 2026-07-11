@@ -5,6 +5,7 @@ import wueffi.taskmanager.client.ProfilerManager;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import wueffi.taskmanager.client.ModTimingProfiler;
+import wueffi.taskmanager.client.ModExecutionContext;
 import wueffi.taskmanager.client.StartupTimingProfiler;
 import wueffi.taskmanager.client.RenderPhaseProfiler;
 import wueffi.taskmanager.client.TaskManagerScreen;
@@ -99,6 +100,8 @@ public abstract class ArrayBackedEventMixin {
                     (proxy, method, args) -> {
                         long start = System.nanoTime();
                         boolean renderThread = isRenderThread();
+                        String reason = "fabric event " + listenerInterface.getSimpleName() + "#" + method.getName();
+                        ModExecutionContext.push(resolvedMod, reason);
                         if (renderThread) {
                             RenderPhaseProfiler.getInstance().pushContextOwner(resolvedMod);
                         }
@@ -108,6 +111,7 @@ public abstract class ArrayBackedEventMixin {
                             if (renderThread) {
                                 RenderPhaseProfiler.getInstance().popContextOwner();
                             }
+                            ModExecutionContext.pop();
                             long duration = System.nanoTime() - start;
                             ModTimingProfiler.getInstance().record(resolvedMod, method.getName(), duration);
                         }

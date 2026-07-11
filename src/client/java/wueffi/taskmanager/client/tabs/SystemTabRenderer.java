@@ -1,15 +1,14 @@
 package wueffi.taskmanager.client;
 
-import net.minecraft.client.gui.DrawContext;
-
 import java.util.Locale;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 final class SystemTabRenderer {
 
     private SystemTabRenderer() {
     }
 
-    static void render(TaskManagerScreen screen, DrawContext ctx, int x, int y, int w, int h) {
+    static void render(TaskManagerScreen screen, GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
         int left = x + TaskManagerScreen.PADDING;
         int top = screen.getFullPageScrollTop(y);
         screen.beginFullPageScissor(ctx, x, y, w, h);
@@ -22,13 +21,13 @@ final class SystemTabRenderer {
         screen.drawTopChip(ctx, left + 84, top, 88, 16, screen.currentSystemMiniTab() == TaskManagerScreen.SystemMiniTab.CPU_GRAPH);
         screen.drawTopChip(ctx, left + 178, top, 88, 16, screen.currentSystemMiniTab() == TaskManagerScreen.SystemMiniTab.GPU_GRAPH);
         screen.drawTopChip(ctx, left + 272, top, 108, 16, screen.currentSystemMiniTab() == TaskManagerScreen.SystemMiniTab.MEMORY_GRAPH);
-        ctx.drawText(screen.uiTextRenderer(), "Overview", left + 14, top + 4,
+        ctx.text(screen.uiTextRenderer(), "Overview", left + 14, top + 4,
                 screen.currentSystemMiniTab() == TaskManagerScreen.SystemMiniTab.OVERVIEW ? TaskManagerScreen.TEXT_PRIMARY : TaskManagerScreen.TEXT_DIM, false);
-        ctx.drawText(screen.uiTextRenderer(), "CPU Graph", left + 100, top + 4,
+        ctx.text(screen.uiTextRenderer(), "CPU Graph", left + 100, top + 4,
                 screen.currentSystemMiniTab() == TaskManagerScreen.SystemMiniTab.CPU_GRAPH ? TaskManagerScreen.TEXT_PRIMARY : TaskManagerScreen.TEXT_DIM, false);
-        ctx.drawText(screen.uiTextRenderer(), "GPU Graph", left + 194, top + 4,
+        ctx.text(screen.uiTextRenderer(), "GPU Graph", left + 194, top + 4,
                 screen.currentSystemMiniTab() == TaskManagerScreen.SystemMiniTab.GPU_GRAPH ? TaskManagerScreen.TEXT_PRIMARY : TaskManagerScreen.TEXT_DIM, false);
-        ctx.drawText(screen.uiTextRenderer(), "Memory Graph", left + 286, top + 4,
+        ctx.text(screen.uiTextRenderer(), "Memory Graph", left + 286, top + 4,
                 screen.currentSystemMiniTab() == TaskManagerScreen.SystemMiniTab.MEMORY_GRAPH ? TaskManagerScreen.TEXT_PRIMARY : TaskManagerScreen.TEXT_DIM, false);
         top += 24;
 
@@ -42,7 +41,7 @@ final class SystemTabRenderer {
                 top += 164;
                 top += screen.renderGraphLegend(ctx, graphLeft, top, new String[]{"CPU Load"}, new int[]{screen.getCpuGraphColor()}) + 8;
             } else {
-                screen.renderSensorSeriesGraph(ctx, graphLeft, top, graphWidth, 146, metrics.getOrderedCpuTemperatureHistory(), "CPU Temperature", "C", screen.getCpuGraphColor(), 110.0, metrics.getHistorySpanSeconds(), system.cpuTemperatureC() >= 0.0, screen.uiTextRenderer().trimToWidth(system.cpuTemperatureUnavailableReason(), Math.max(80, graphWidth - 12)));
+                screen.renderSensorSeriesGraph(ctx, graphLeft, top, graphWidth, 146, metrics.getOrderedCpuTemperatureHistory(), "CPU Temperature", "C", screen.getCpuGraphColor(), 110.0, metrics.getHistorySpanSeconds(), system.cpuTemperatureC() >= 0.0, screen.uiTextRenderer().plainSubstrByWidth(system.cpuTemperatureUnavailableReason(), Math.max(80, graphWidth - 12)));
                 top += 164;
                 top += screen.renderGraphLegend(ctx, graphLeft, top, new String[]{"CPU Temperature"}, new int[]{screen.getCpuGraphColor()}) + 8;
             }
@@ -128,7 +127,7 @@ final class SystemTabRenderer {
         screen.drawMetricRow(ctx, left, top, w - 32, "CPU Temperature", screen.formatTemperature(system.cpuTemperatureC()));
         top += 16;
         if (system.cpuTemperatureC() < 0) {
-            ctx.drawText(screen.uiTextRenderer(), screen.uiTextRenderer().trimToWidth("Why CPU temp is unavailable: " + screen.blankToUnknown(system.cpuTemperatureUnavailableReason()), w - 24), left + 6, top, TaskManagerScreen.ACCENT_YELLOW, false);
+            ctx.text(screen.uiTextRenderer(), screen.uiTextRenderer().plainSubstrByWidth("Why CPU temp is unavailable: " + screen.blankToUnknown(system.cpuTemperatureUnavailableReason()), w - 24), left + 6, top, TaskManagerScreen.ACCENT_YELLOW, false);
             top += 14;
         }
         screen.drawMetricRow(ctx, left, top, w - 32, "GPU Core Temperature", TelemetryTextFormatter.formatGpuTemperatureWithTrend(system));
@@ -183,7 +182,7 @@ final class SystemTabRenderer {
         top = screen.renderStringListSection(ctx, left, top, w - 24, "Shader Compile Stutter [measured CPU]", screen.buildShaderCompileLines()) + 10;
         top = screen.renderStringListSection(ctx, left, top, w - 24, "JVM Tuning Advisor", ProfilerManager.getInstance().getJvmTuningAdvisor()) + 10;
         top = screen.renderStringListSection(ctx, left, top, w - 24, "Chunk Pipeline Drill-Down", screen.buildChunkPipelineDrilldownLines()) + 10;
-        ctx.drawText(screen.uiTextRenderer(), screen.uiTextRenderer().trimToWidth("Export sessions keep the current runtime summary, findings, hotspots, and HTML report for offline inspection.", w - 24), left, top, TaskManagerScreen.TEXT_DIM, false);
+        ctx.text(screen.uiTextRenderer(), screen.uiTextRenderer().plainSubstrByWidth("Export sessions keep the current runtime summary, findings, hotspots, and HTML report for offline inspection.", w - 24), left, top, TaskManagerScreen.TEXT_DIM, false);
         ctx.disableScissor();
     }
 }

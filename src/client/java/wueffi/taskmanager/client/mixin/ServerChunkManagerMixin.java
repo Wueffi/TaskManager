@@ -1,6 +1,6 @@
 package wueffi.taskmanager.client.mixin;
 
-import net.minecraft.server.world.ServerChunkManager;
+import net.minecraft.server.level.ServerChunkCache;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -8,10 +8,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import wueffi.taskmanager.client.ChunkWorkProfiler;
 import wueffi.taskmanager.client.TaskManagerScreen;
 
-@Mixin(ServerChunkManager.class)
+@Mixin(ServerChunkCache.class)
 public abstract class ServerChunkManagerMixin {
 
-    @Inject(method = "getChunkFutureSyncOnMainThread", at = @At("HEAD"))
+    @Inject(method = "getChunkFuture", at = @At("HEAD"))
     private void taskmanager$beginChunkLoad(CallbackInfoReturnable<?> cir) {
         if (!TaskManagerScreen.isLiveMetricsActive()) {
             return;
@@ -19,7 +19,7 @@ public abstract class ServerChunkManagerMixin {
         ChunkWorkProfiler.getInstance().beginPhase("minecraft | main-thread chunk load");
     }
 
-    @Inject(method = "getChunkFutureSyncOnMainThread", at = @At("RETURN"))
+    @Inject(method = "getChunkFuture", at = @At("RETURN"))
     private void taskmanager$endChunkLoad(CallbackInfoReturnable<?> cir) {
         if (!TaskManagerScreen.isLiveMetricsActive()) {
             return;

@@ -9,6 +9,7 @@ public class TickProfiler {
 
     private static final int WINDOW_SIZE = 200;
     private static final int MAX_TRIMMED_OUTLIERS = 4;
+    private static final long MAX_REASONABLE_TICK_NS = 10_000_000_000L;
 
     private final long[] clientTickDurations = new long[WINDOW_SIZE];
     private final long[] serverTickDurations = new long[WINDOW_SIZE];
@@ -25,7 +26,9 @@ public class TickProfiler {
     }
 
     public void endTick() {
-        record(clientTickDurations, true, System.nanoTime() - clientStart);
+        long startedAt = clientStart;
+        clientStart = 0L;
+        recordElapsed(clientTickDurations, true, startedAt);
     }
 
     public void beginServerTick() {
@@ -33,7 +36,9 @@ public class TickProfiler {
     }
 
     public void endServerTick() {
-        record(serverTickDurations, false, System.nanoTime() - serverStart);
+        long startedAt = serverStart;
+        serverStart = 0L;
+        recordElapsed(serverTickDurations, false, startedAt);
     }
 
     public long getAverageTickNs() {
@@ -85,12 +90,27 @@ public class TickProfiler {
     }
 
     public void reset() {
+        clientStart = 0L;
+        serverStart = 0L;
         clientIndex = 0;
         clientCount = 0;
         serverIndex = 0;
         serverCount = 0;
         Arrays.fill(clientTickDurations, 0L);
         Arrays.fill(serverTickDurations, 0L);
+    }
+
+    private void recordElapsed(long[] buffer, boolean client, long startedAt) {
+        if (startedAt <= 0L) {
+            return;
+        }
+
+        long duration = System.nanoTime() - startedAt;
+        if (duration <= 0L || duration > MAX_REASONABLE_TICK_NS) {
+            return;
+        }
+
+        record(buffer, client, duration);
     }
 
     private void record(long[] buffer, boolean client, long duration) {

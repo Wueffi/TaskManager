@@ -1,16 +1,15 @@
 package wueffi.taskmanager.client;
 
-import net.minecraft.client.gui.DrawContext;
-
 import java.util.List;
 import java.util.Locale;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 final class ThreadsTabRenderer {
 
     private ThreadsTabRenderer() {
     }
 
-    static void render(TaskManagerScreen screen, DrawContext ctx, int x, int y, int w, int h, int mouseX, int mouseY) {
+    static void render(TaskManagerScreen screen, GuiGraphicsExtractor ctx, int x, int y, int w, int h, int mouseX, int mouseY) {
         List<SystemMetricsProfiler.ThreadDrilldown> rows = screen.getThreadRows();
         int detailW = Math.min(420, Math.max(320, w / 3));
         int gap = TaskManagerScreen.PADDING;
@@ -19,10 +18,10 @@ final class ThreadsTabRenderer {
         int descriptionBottomY = screen.renderWrappedText(ctx, x + TaskManagerScreen.PADDING, infoY, Math.max(260, listW - 16),
                 "Measured live thread CPU/allocation snapshots with sampled owner and confidence. Use this when a mod row is really a thread question.",
                 TaskManagerScreen.TEXT_DIM);
-        ctx.drawText(screen.uiTextRenderer(), "Tip: the universal search filters thread name, owner, reason frame, and sampled top frames.",
+        ctx.text(screen.uiTextRenderer(), "Tip: the universal search filters thread name, owner, reason frame, and sampled top frames.",
                 x + TaskManagerScreen.PADDING, descriptionBottomY + 2, TaskManagerScreen.TEXT_DIM, false);
         String freezeState = screen.isThreadFreezeActive() ? "Frozen snapshot" : "Live snapshot";
-        ctx.drawText(screen.uiTextRenderer(), rows.size() + " live threads | sort " + screen.currentThreadSortLabel() + " | " + freezeState,
+        ctx.text(screen.uiTextRenderer(), rows.size() + " live threads | sort " + screen.currentThreadSortLabel() + " | " + freezeState,
                 x + TaskManagerScreen.PADDING, descriptionBottomY + 14, TaskManagerScreen.TEXT_DIM, false);
         int controlsY = descriptionBottomY + 26;
         screen.renderThreadToolbar(ctx, x + TaskManagerScreen.PADDING, controlsY);
@@ -37,16 +36,16 @@ final class ThreadsTabRenderer {
         int cpuX = x + listW - 156;
         int allocX = x + listW - 102;
         int stateX = x + listW - 54;
-        ctx.drawText(screen.uiTextRenderer(), "THREAD", x + TaskManagerScreen.PADDING, headerY + 3, TaskManagerScreen.TEXT_DIM, false);
-        ctx.drawText(screen.uiTextRenderer(), "OWNER", ownerX, headerY + 3, TaskManagerScreen.TEXT_DIM, false);
-        ctx.drawText(screen.uiTextRenderer(), "%CPU", cpuX, headerY + 3, TaskManagerScreen.TEXT_DIM, false);
-        ctx.drawText(screen.uiTextRenderer(), "ALLOC", allocX, headerY + 3, TaskManagerScreen.TEXT_DIM, false);
-        ctx.drawText(screen.uiTextRenderer(), "STATE", stateX, headerY + 3, TaskManagerScreen.TEXT_DIM, false);
+        ctx.text(screen.uiTextRenderer(), "THREAD", x + TaskManagerScreen.PADDING, headerY + 3, TaskManagerScreen.TEXT_DIM, false);
+        ctx.text(screen.uiTextRenderer(), "OWNER", ownerX, headerY + 3, TaskManagerScreen.TEXT_DIM, false);
+        ctx.text(screen.uiTextRenderer(), "%CPU", cpuX, headerY + 3, TaskManagerScreen.TEXT_DIM, false);
+        ctx.text(screen.uiTextRenderer(), "ALLOC", allocX, headerY + 3, TaskManagerScreen.TEXT_DIM, false);
+        ctx.text(screen.uiTextRenderer(), "STATE", stateX, headerY + 3, TaskManagerScreen.TEXT_DIM, false);
 
         int listY = headerY + 16;
         int listH = h - (listY - y);
         if (rows.isEmpty()) {
-            ctx.drawText(screen.uiTextRenderer(),
+            ctx.text(screen.uiTextRenderer(),
                     screen.currentGlobalSearch().isBlank() ? "Waiting for live thread samples..." : "No threads match the current universal search.",
                     x + TaskManagerScreen.PADDING, listY + 6, TaskManagerScreen.TEXT_DIM, false);
         } else {
@@ -65,20 +64,20 @@ final class ThreadsTabRenderer {
                     int chipX = Math.max(x + TaskManagerScreen.PADDING + 96, modRight - chipWidth);
                     int threadNameX = x + TaskManagerScreen.PADDING;
                     int threadNameWidth = Math.max(48, chipX - threadNameX - 6);
-                    ctx.drawText(screen.uiTextRenderer(), screen.uiTextRenderer().trimToWidth(screen.cleanProfilerLabel(thread.threadName()), threadNameWidth),
+                    ctx.text(screen.uiTextRenderer(), screen.uiTextRenderer().plainSubstrByWidth(screen.cleanProfilerLabel(thread.threadName()), threadNameWidth),
                             threadNameX, rowY + 4, TaskManagerScreen.TEXT_PRIMARY, false);
                     screen.renderConfidenceChip(ctx, chipX, rowY + 3, confidence);
-                    ctx.drawText(screen.uiTextRenderer(),
-                            screen.uiTextRenderer().trimToWidth("Reason: " + screen.cleanProfilerLabel(thread.reasonFrame()), Math.max(60, modRight - threadNameX)),
+                    ctx.text(screen.uiTextRenderer(),
+                            screen.uiTextRenderer().plainSubstrByWidth("Reason: " + screen.cleanProfilerLabel(thread.reasonFrame()), Math.max(60, modRight - threadNameX)),
                             threadNameX, rowY + 16, TaskManagerScreen.TEXT_DIM, false);
-                    ctx.drawText(screen.uiTextRenderer(),
-                            screen.uiTextRenderer().trimToWidth(screen.getDisplayName(thread.ownerMod()), Math.max(44, cpuX - ownerX - 8)),
+                    ctx.text(screen.uiTextRenderer(),
+                            screen.uiTextRenderer().plainSubstrByWidth(screen.getDisplayName(thread.ownerMod()), Math.max(44, cpuX - ownerX - 8)),
                             ownerX, rowY + 9, TaskManagerScreen.TEXT_DIM, false);
-                    ctx.drawText(screen.uiTextRenderer(), String.format(Locale.ROOT, "%.1f%%", thread.cpuLoadPercent()), cpuX, rowY + 9,
+                    ctx.text(screen.uiTextRenderer(), String.format(Locale.ROOT, "%.1f%%", thread.cpuLoadPercent()), cpuX, rowY + 9,
                             screen.getHeatColor(thread.cpuLoadPercent()), false);
-                    ctx.drawText(screen.uiTextRenderer(), screen.uiTextRenderer().trimToWidth(screen.formatBytesPerSecond(thread.allocationRateBytesPerSecond()), 48),
+                    ctx.text(screen.uiTextRenderer(), screen.uiTextRenderer().plainSubstrByWidth(screen.formatBytesPerSecond(thread.allocationRateBytesPerSecond()), 48),
                             allocX, rowY + 9, TaskManagerScreen.TEXT_DIM, false);
-                    ctx.drawText(screen.uiTextRenderer(), screen.uiTextRenderer().trimToWidth(screen.blankToUnknown(thread.state()), 44),
+                    ctx.text(screen.uiTextRenderer(), screen.uiTextRenderer().plainSubstrByWidth(screen.blankToUnknown(thread.state()), 44),
                             stateX, rowY + 9, TaskManagerScreen.TEXT_DIM, false);
                 }
                 if (rowY > listY + listH) {

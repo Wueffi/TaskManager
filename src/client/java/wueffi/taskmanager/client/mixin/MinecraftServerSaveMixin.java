@@ -11,7 +11,7 @@ import wueffi.taskmanager.client.TaskManagerScreen;
 @Mixin(MinecraftServer.class)
 public class MinecraftServerSaveMixin {
 
-    @Inject(method = "save", at = @At("HEAD"), require = 0)
+    @Inject(method = "saveAllChunks", at = @At("HEAD"), require = 0)
     private void taskmanager$onSaveHead(boolean suppressLogs, boolean flush, boolean force, CallbackInfoReturnable<Boolean> cir) {
         if (!TaskManagerScreen.isLiveMetricsActive()) {
             return;
@@ -19,7 +19,7 @@ public class MinecraftServerSaveMixin {
         ProfilerManager.getInstance().beginSaveEvent(force ? "manual-save" : "autosave");
     }
 
-    @Inject(method = "save", at = @At("TAIL"), require = 0)
+    @Inject(method = "saveAllChunks", at = @At("TAIL"), require = 0)
     private void taskmanager$onSaveTail(boolean suppressLogs, boolean flush, boolean force, CallbackInfoReturnable<Boolean> cir) {
         if (!TaskManagerScreen.isLiveMetricsActive()) {
             return;

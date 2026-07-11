@@ -2,7 +2,6 @@ package wueffi.taskmanager.client;
 
 import com.sun.management.OperatingSystemMXBean;
 import org.lwjgl.opengl.GL;
-import net.minecraft.client.MinecraftClient;
 import org.lwjgl.opengl.GL11;
 import wueffi.taskmanager.client.util.ConfigManager;
 
@@ -15,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import net.minecraft.client.Minecraft;
 
 public class SystemMetricsProfiler {
 
@@ -974,7 +974,7 @@ public class SystemMetricsProfiler {
 
     private PlayerMotionSnapshot samplePlayerMotion(long now) {
         try {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             if (client.player == null) {
                 return new PlayerMotionSnapshot(-1.0, chunkEntryTimes.size(), distanceTravelledBlocks);
             }
@@ -994,8 +994,8 @@ public class SystemMetricsProfiler {
             lastPlayerSampleAtMillis = now;
             lastPlayerPosValid = true;
 
-            int chunkX = client.player.getChunkPos().x;
-            int chunkZ = client.player.getChunkPos().z;
+            int chunkX = client.player.chunkPosition().x();
+            int chunkZ = client.player.chunkPosition().z();
             if (!lastPlayerChunkValid || chunkX != lastPlayerChunkX || chunkZ != lastPlayerChunkZ) {
                 chunkEntryTimes.addLast(now);
                 lastPlayerChunkX = chunkX;
@@ -1296,11 +1296,11 @@ public class SystemMetricsProfiler {
 
     private String sampleBiome() {
         try {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (client.world == null || client.player == null) {
+            Minecraft client = Minecraft.getInstance();
+            if (client.level == null || client.player == null) {
                 return "unknown";
             }
-            return client.world.getBiome(client.player.getBlockPos()).getKey().map(key -> key.getValue().toString()).orElse("unknown");
+            return client.level.getBiome(client.player.blockPosition()).unwrapKey().map(key -> key.identifier().toString()).orElse("unknown");
         } catch (Throwable ignored) {
             return "unknown";
         }
@@ -1308,11 +1308,11 @@ public class SystemMetricsProfiler {
 
     private String sampleLightQueue() {
         try {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (client.worldRenderer == null) {
+            Minecraft client = Minecraft.getInstance();
+            if (client.levelRenderer == null) {
                 return "unavailable";
             }
-            String debug = client.worldRenderer.getChunksDebugString();
+            String debug = client.levelRenderer.getSectionStatistics();
             if (debug == null || debug.isBlank()) {
                 return "unavailable";
             }

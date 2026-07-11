@@ -1,11 +1,11 @@
 package wueffi.taskmanager.client;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 @FunctionalInterface
 public interface TabRenderer {
 
-    void render(DrawContext ctx, TaskManagerScreen screen, int x, int y, int w, int h, int mouseX, int mouseY);
+    void render(GuiGraphicsExtractor ctx, TaskManagerScreen screen, int x, int y, int w, int h, int mouseX, int mouseY);
 
     default boolean mouseClicked(TaskManagerScreen screen, double mouseX, double mouseY, int button) {
         return false;
