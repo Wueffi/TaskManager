@@ -492,13 +492,14 @@ public class ProfilerManager {
     }
 
     public boolean shouldCollectDetailedMetrics() {
-        if (isProfilerSelfProtectionActive() && !screenOpen && !sessionLogging) {
+        return computeDetailedMetrics(mode, screenOpen, sessionLogging, isProfilerSelfProtectionActive());
+    }
+
+    static boolean computeDetailedMetrics(CaptureMode mode, boolean screenOpen, boolean sessionLogging, boolean selfProtecting) {
+        if (selfProtecting && !screenOpen && !sessionLogging) {
             return false;
         }
-        return switch (getLiveCollectionMode()) {
-            case SCREEN, SESSION, CAPTURE -> true;
-            default -> false;
-        };
+        return screenOpen || sessionLogging || mode == CaptureMode.SPIKE_CAPTURE;
     }
 
     public String getCollectorGovernorMode() {
@@ -736,7 +737,14 @@ public class ProfilerManager {
 
     public void onClientTickEnd(Minecraft client) {
         long selfCostStartedAt = System.nanoTime();
+        boolean collectionActive = false;
         try {
+            collectionActive = getLiveCollectionMode() != LiveCollectionMode.INACTIVE;
+            ThreadLoadProfiler.getInstance().setCollectionActive(collectionActive, shouldCollectDetailedMetrics());
+            if (!collectionActive) {
+                return;
+            }
+
             WorldScanResult worldScan = sampleWorldData(client);
             latestEntityCounts = worldScan.entityCounts();
             latestChunkCounts = sampleChunkCounts(client);
@@ -750,7 +758,6 @@ public class ProfilerManager {
                 MemoryProfiler.getInstance().sampleJvm();
             }
             MemoryProfiler.Snapshot memorySnapshot = MemoryProfiler.getInstance().getDetailedSnapshot();
-            ThreadLoadProfiler.getInstance().sample();
             SystemMetricsProfiler.getInstance().sample(memorySnapshot, latestEntityCounts, latestChunkCounts);
             NetworkPacketProfiler.getInstance().drainWindow();
             updateConflictTracking(SystemMetricsProfiler.getInstance().getSnapshot());
@@ -786,7 +793,9 @@ public class ProfilerManager {
             enforceSessionWindow(client);
             publishSnapshot(false, cpuWindow.lastSampleAgeMillis());
         } finally {
-            FrameTimelineProfiler.getInstance().addSelfCost(System.nanoTime() - selfCostStartedAt);
+            if (collectionActive) {
+                FrameTimelineProfiler.getInstance().addSelfCost(System.nanoTime() - selfCostStartedAt);
+            }
         }
     }
 
@@ -1592,7 +1601,7 @@ public class ProfilerManager {
         latestPerformanceAlert = nextAlert;
         performanceAlertFlashUntilMillis = now + 2_500L;
         if (ConfigManager.isPerformanceAlertChatEnabled() && client != null && client.gui != null) {
-            client.gui.getChat().addClientSystemMessage(Component.literal("[Task Manager] " + nextAlert.message()).withStyle(ChatFormatting.YELLOW));
+            client.gui.hud.getChat().addClientSystemMessage(Component.literal("[Task Manager] " + nextAlert.message()).withStyle(ChatFormatting.YELLOW));
         }
     }
 
@@ -2198,7 +2207,7 @@ public class ProfilerManager {
 
     private void publishSnapshot(boolean force, long cpuSampleAgeMillis) {
         long now = System.currentTimeMillis();
-        int snapshotDelayMs = ConfigManager.isHudEnabled() ? 50 : ConfigManager.getProfilerUpdateDelayMs();
+        int snapshotDelayMs = ConfigManager.getProfilerUpdateDelayMs();
         if (!shouldPublishSnapshot(force, now, lastSnapshotPublishedAtMillis, snapshotDelayMs)) {
             return;
         }
@@ -2805,12 +2814,12 @@ public class ProfilerManager {
         }
 
         long now = System.currentTimeMillis();
-        if (lastChunkCountsAtMillis > 0L && now - lastChunkCountsAtMillis < 250L && latestChunkCounts.loadedChunks() > 0) {
+        if (lastChunkCountsAtMillis > 0L && now - lastChunkCountsAtMillis < 500L && latestChunkCounts.loadedChunks() > 0) {
             return latestChunkCounts;
         }
         lastChunkCountsAtMillis = now;
 
-        String debug = client.levelRenderer.getSectionStatistics();
+        String debug = client.levelExtractor.sectionStatistics();
         if (debug == null || debug.isBlank()) {
             return ChunkCounts.empty();
         }

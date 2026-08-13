@@ -55,7 +55,7 @@ public final class HudOverlayRenderer {
 
     public static void render(GuiGraphicsExtractor ctx) {
         Minecraft client = Minecraft.getInstance();
-        if (client.options.hideGui || client.screen instanceof TaskManagerScreen) {
+        if (client.gui.hud.isHidden() || client.gui.screen() instanceof TaskManagerScreen) {
             return;
         }
 

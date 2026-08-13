@@ -7,7 +7,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import wueffi.taskmanager.client.ChunkWorkProfiler;
-import wueffi.taskmanager.client.TaskManagerScreen;
+import wueffi.taskmanager.client.ProfilerManager;
 import wueffi.taskmanager.client.util.ModClassIndex;
 
 @Mixin(ChunkGenerator.class)
@@ -34,7 +34,7 @@ public abstract class ChunkGeneratorMixin {
     }
 
     private void taskmanager$beginPhase(String phase) {
-        if (!TaskManagerScreen.isLiveMetricsActive()) {
+        if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) {
             return;
         }
         ChunkGenerator generator = (ChunkGenerator) (Object) this;
@@ -43,7 +43,7 @@ public abstract class ChunkGeneratorMixin {
     }
 
     private void taskmanager$endPhase() {
-        if (!TaskManagerScreen.isLiveMetricsActive()) {
+        if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) {
             return;
         }
         ChunkWorkProfiler.getInstance().endPhase();

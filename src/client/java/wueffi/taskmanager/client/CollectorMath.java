@@ -19,8 +19,8 @@ final class CollectorMath {
     }
 
     static long computeAdaptiveWorldScanCadenceMillis(boolean detailedMetrics, boolean sessionLogging, boolean selfProtecting, long lastScanDurationMillis) {
-        long baseCadenceMillis = selfProtecting ? 750L : (detailedMetrics || sessionLogging ? 125L : 250L);
-        return Math.max(baseCadenceMillis, baseCadenceMillis + Math.min(750L, Math.max(0L, lastScanDurationMillis) * 40L));
+        long baseCadenceMillis = selfProtecting ? 2_000L : (detailedMetrics || sessionLogging ? 500L : 1_000L);
+        return baseCadenceMillis + Math.min(4_000L, Math.max(0L, lastScanDurationMillis) * 100L);
     }
 
     static long computeAdaptiveMemoryCadenceMillis(String governorMode, boolean screenOpen, boolean sessionLogging) {

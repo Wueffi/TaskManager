@@ -2977,7 +2977,7 @@ public class TaskManagerScreen extends Screen {
 
     public static boolean isProfilingActive() {
         Minecraft client = Minecraft.getInstance();
-        return client != null && client.screen instanceof TaskManagerScreen;
+        return client != null && client.gui.screen() instanceof TaskManagerScreen;
     }
 
     public static boolean isLiveMetricsActive() {
@@ -2985,7 +2985,7 @@ public class TaskManagerScreen extends Screen {
     }
 
     public static boolean isMemoryTabActive(Minecraft client) {
-        return client != null && client.screen instanceof TaskManagerScreen screen && screen.activeTab == 4;
+        return client != null && client.gui.screen() instanceof TaskManagerScreen screen && screen.activeTab == 4;
     }
 
     private String formatMode(ProfilerManager.CaptureMode mode) {

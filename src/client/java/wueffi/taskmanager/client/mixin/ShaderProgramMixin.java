@@ -8,22 +8,22 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import wueffi.taskmanager.client.ShaderCompilationProfiler;
-import wueffi.taskmanager.client.TaskManagerScreen;
+import wueffi.taskmanager.client.ProfilerManager;
 
 @Mixin(GlProgram.class)
 public abstract class ShaderProgramMixin {
 
     @Inject(method = "link", at = @At("HEAD"))
-    private static void taskmanager$beginShaderCompile(GlShaderModule vertexShader, GlShaderModule fragmentShader, VertexFormat vertexFormat, String debugLabel, CallbackInfoReturnable<GlProgram> cir) {
-        if (!TaskManagerScreen.isLiveMetricsActive()) {
+    private static void taskmanager$beginShaderCompile(GlShaderModule vertexShader, GlShaderModule fragmentShader, VertexFormat[] vertexFormats, String debugLabel, CallbackInfoReturnable<GlProgram> cir) {
+        if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) {
             return;
         }
         ShaderCompilationProfiler.getInstance().beginCompile(debugLabel);
     }
 
     @Inject(method = "link", at = @At("RETURN"))
-    private static void taskmanager$endShaderCompile(GlShaderModule vertexShader, GlShaderModule fragmentShader, VertexFormat vertexFormat, String debugLabel, CallbackInfoReturnable<GlProgram> cir) {
-        if (!TaskManagerScreen.isLiveMetricsActive()) {
+    private static void taskmanager$endShaderCompile(GlShaderModule vertexShader, GlShaderModule fragmentShader, VertexFormat[] vertexFormats, String debugLabel, CallbackInfoReturnable<GlProgram> cir) {
+        if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) {
             return;
         }
         ShaderCompilationProfiler.getInstance().endCompile();
