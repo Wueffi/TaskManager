@@ -48,6 +48,9 @@ public class NetworkPacketProfiler {
     private final Map<String, Long> outboundByType = new LinkedHashMap<>();
 
     public void recordInbound(Packet<?> packet) {
+        if (!ProfilerManager.getInstance().shouldCollectFrameMetrics()) {
+            return;
+        }
         synchronized (lock) {
             inboundPackets++;
             ClassifiedPacket classified = classify(packet);
@@ -57,6 +60,9 @@ public class NetworkPacketProfiler {
     }
 
     public void recordOutbound(Packet<?> packet) {
+        if (!ProfilerManager.getInstance().shouldCollectFrameMetrics()) {
+            return;
+        }
         synchronized (lock) {
             outboundPackets++;
             ClassifiedPacket classified = classify(packet);

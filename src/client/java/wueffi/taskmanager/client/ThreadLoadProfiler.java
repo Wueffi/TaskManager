@@ -34,6 +34,8 @@ public class ThreadLoadProfiler {
     private volatile Map<String, ThreadSnapshot> latestThreadSnapshots = Map.of();
     private volatile Map<Long, RawThreadSnapshot> latestRawThreadSnapshots = Map.of();
     private volatile long lastSampleTimeNs;
+    private boolean collectionActive;
+    private boolean contentionMonitoringOwned;
 
     private ThreadLoadProfiler() {
         if (threadBean.isThreadCpuTimeSupported() && !threadBean.isThreadCpuTimeEnabled()) {
@@ -42,16 +44,34 @@ public class ThreadLoadProfiler {
             } catch (UnsupportedOperationException ignored) {
             }
         }
-        if (threadBean.isThreadContentionMonitoringSupported() && !threadBean.isThreadContentionMonitoringEnabled()) {
-            try {
+    }
+
+    public void setCollectionActive(boolean active, boolean collectContention) {
+        if (collectionActive != active) {
+            collectionActive = active;
+            reset();
+        }
+        setContentionMonitoringActive(active && collectContention);
+    }
+
+    private void setContentionMonitoringActive(boolean active) {
+        if (!threadBean.isThreadContentionMonitoringSupported()) {
+            return;
+        }
+        try {
+            if (active && !threadBean.isThreadContentionMonitoringEnabled()) {
                 threadBean.setThreadContentionMonitoringEnabled(true);
-            } catch (UnsupportedOperationException ignored) {
+                contentionMonitoringOwned = true;
+            } else if (!active && contentionMonitoringOwned) {
+                threadBean.setThreadContentionMonitoringEnabled(false);
+                contentionMonitoringOwned = false;
             }
+        } catch (UnsupportedOperationException | SecurityException ignored) {
         }
     }
 
     public void sample() {
-        if (!threadBean.isThreadCpuTimeSupported() || !threadBean.isThreadCpuTimeEnabled()) {
+        if (!collectionActive || !threadBean.isThreadCpuTimeSupported() || !threadBean.isThreadCpuTimeEnabled()) {
             latestThreadSnapshots = Map.of();
             return;
         }

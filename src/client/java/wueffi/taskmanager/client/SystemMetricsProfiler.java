@@ -290,10 +290,10 @@ public class SystemMetricsProfiler {
         String collectorGovernorMode = ProfilerManager.getInstance().getCollectorGovernorMode();
         int sampleIntervalMillis = switch (collectorGovernorMode) {
             case "self-protect" -> Math.max(300, ConfigManager.getMetricsUpdateIntervalMs() * 2);
-            case "burst" -> 50;
+            case "burst" -> Math.max(50, ConfigManager.getMetricsUpdateIntervalMs());
             case "tight" -> Math.max(100, ConfigManager.getMetricsUpdateIntervalMs());
             case "light" -> Math.max(200, ConfigManager.getMetricsUpdateIntervalMs());
-            default -> ProfilerManager.getInstance().shouldCollectFrameMetrics() ? 50 : ConfigManager.getMetricsUpdateIntervalMs();
+            default -> ConfigManager.getMetricsUpdateIntervalMs();
         };
         if (now - lastSampleAtMillis < sampleIntervalMillis) {
             return;
@@ -302,6 +302,8 @@ public class SystemMetricsProfiler {
         long elapsedMillis = previousSampleAtMillis <= 0L ? sampleIntervalMillis : Math.max(1L, now - previousSampleAtMillis);
         lastSampleAtMillis = now;
         lastSampleIntervalMillis = sampleIntervalMillis;
+
+        ThreadLoadProfiler.getInstance().sample();
 
         String vendor = resolveGpuVendor();
         String renderer = resolveGpuRenderer();
@@ -1312,7 +1314,7 @@ public class SystemMetricsProfiler {
             if (client.levelRenderer == null) {
                 return "unavailable";
             }
-            String debug = client.levelRenderer.getSectionStatistics();
+            String debug = client.levelExtractor.sectionStatistics();
             if (debug == null || debug.isBlank()) {
                 return "unavailable";
             }

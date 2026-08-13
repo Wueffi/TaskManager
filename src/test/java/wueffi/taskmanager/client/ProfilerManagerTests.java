@@ -10,6 +10,7 @@ public final class ProfilerManagerTests {
         missedSampleCountDetectsDroppedIntervals();
         observedSampleIntervalUsesAverageGap();
         sessionLoggingKeepsCaptureActiveInManualDeep();
+        passiveModeSkipsDetailedInstrumentation();
     }
 
     private static void snapshotPublishingHonorsForceAndDelay() {
@@ -36,6 +37,15 @@ public final class ProfilerManagerTests {
                 "manual deep recording should stay active while a session is being recorded");
         assertFalse(ProfilerManager.computeCaptureActive(ProfilerManager.CaptureMode.MANUAL_DEEP, false, false),
                 "manual deep without screen or session should stay inactive");
+    }
+
+    private static void passiveModeSkipsDetailedInstrumentation() {
+        assertFalse(ProfilerManager.computeDetailedMetrics(ProfilerManager.CaptureMode.PASSIVE_LIGHTWEIGHT, false, false, false),
+                "passive lightweight mode should avoid detailed instrumentation");
+        assertTrue(ProfilerManager.computeDetailedMetrics(ProfilerManager.CaptureMode.SPIKE_CAPTURE, false, false, false),
+                "spike capture should retain detailed instrumentation");
+        assertTrue(ProfilerManager.computeDetailedMetrics(ProfilerManager.CaptureMode.OPEN_ONLY, true, false, false),
+                "the open profiler screen should retain detailed instrumentation");
     }
 
     private static void assertTrue(boolean value, String message) {

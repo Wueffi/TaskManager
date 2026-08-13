@@ -44,10 +44,10 @@ public class KeyBindHandler {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (openKey.consumeClick()) {
-                if (client.screen instanceof TaskManagerScreen) {
-                    client.setScreen(null);
+                if (client.gui.screen() instanceof TaskManagerScreen) {
+                    client.gui.setScreen(null);
                 } else {
-                    client.setScreen(new TaskManagerScreen());
+                    client.gui.setScreen(new TaskManagerScreen());
                 }
             }
             while (sessionKey.consumeClick()) {

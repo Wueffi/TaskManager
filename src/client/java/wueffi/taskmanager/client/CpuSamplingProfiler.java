@@ -18,7 +18,9 @@ public class CpuSamplingProfiler {
     private static final CpuSamplingProfiler INSTANCE = new CpuSamplingProfiler();
     public static CpuSamplingProfiler getInstance() { return INSTANCE; }
 
-    private static final int SAMPLE_INTERVAL_MS = 2;
+    private static final int SAMPLE_INTERVAL_MS = 5;
+    private static final int LIGHTWEIGHT_SAMPLE_INTERVAL_MS = 20;
+    private static final int INACTIVE_POLL_INTERVAL_MS = 100;
     private static final int MAX_ATTRIBUTION_SNAPSHOTS = 4;
     private static final int READY_CPU_SAMPLES = 300;
     private static final int READY_RENDER_SAMPLES = 200;
@@ -130,10 +132,14 @@ public class CpuSamplingProfiler {
     private void runSampler() {
         while (running) {
             try {
-                if (ProfilerManager.getInstance().isCaptureActive()) {
+                ProfilerManager profilerManager = ProfilerManager.getInstance();
+                boolean captureActive = profilerManager.isCaptureActive();
+                if (captureActive) {
                     sampleBusyThreads();
                 }
-                Thread.sleep(SAMPLE_INTERVAL_MS);
+                Thread.sleep(captureActive
+                        ? (profilerManager.shouldCollectDetailedMetrics() ? SAMPLE_INTERVAL_MS : LIGHTWEIGHT_SAMPLE_INTERVAL_MS)
+                        : INACTIVE_POLL_INTERVAL_MS);
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
                 return;
