@@ -257,7 +257,7 @@ public class SystemMetricsProfiler {
     private final double[] loadedChunkHistory = new double[HISTORY_SIZE];
     private final double[] renderedChunkHistory = new double[HISTORY_SIZE];
     private final WindowsTelemetryBridge windowsBridge = new WindowsTelemetryBridge();
-    private final NativeWindowsSensors nativeWindowsSensors = new NativeWindowsSensors();
+    private final Sensors sensors = new Sensors();
     private int historyIndex;
     private int historyCount;
 
@@ -328,7 +328,7 @@ public class SystemMetricsProfiler {
         long directMemoryUsedBytes = memorySnapshot.directBufferBytes() + memorySnapshot.mappedBufferBytes();
         long directMemoryMaxBytes = lookupDirectMemoryMaxBytes();
 
-        NativeWindowsSensors.Sample nativeSample = nativeWindowsSensors.sample(renderer, vendor);
+        Sensors.Sample nativeSample = sensors.sample(renderer, vendor);
         windowsBridge.requestRefreshIfNeeded(nativeSample.active());
         WindowsTelemetryBridge.Sample bridgeSample = windowsBridge.getLatest();
         WindowsTelemetryBridge.Sample mergedSample = mergeTelemetrySamples(bridgeSample, nativeSample);
@@ -697,7 +697,7 @@ public class SystemMetricsProfiler {
 
 
 
-    private WindowsTelemetryBridge.Sample mergeTelemetrySamples(WindowsTelemetryBridge.Sample bridgeSample, NativeWindowsSensors.Sample nativeSample) {
+    private WindowsTelemetryBridge.Sample mergeTelemetrySamples(WindowsTelemetryBridge.Sample bridgeSample, Sensors.Sample nativeSample) {
         if (bridgeSample == null) {
             bridgeSample = WindowsTelemetryBridge.Sample.empty();
         }
@@ -705,7 +705,7 @@ public class SystemMetricsProfiler {
             bridgeSample = WindowsTelemetryBridge.Sample.empty();
         }
         if (nativeSample == null) {
-            nativeSample = NativeWindowsSensors.Sample.empty();
+            nativeSample = Sensors.Sample.empty();
         }
         return new WindowsTelemetryBridge.Sample(
                 bridgeSample.capturedAtEpochMillis(),

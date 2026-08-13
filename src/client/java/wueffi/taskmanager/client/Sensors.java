@@ -22,7 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-final class NativeWindowsSensors {
+final class Sensors {
 
     record Sample(
             boolean active,
@@ -43,12 +43,27 @@ final class NativeWindowsSensors {
         }
     }
 
+    private static final boolean IS_WINDOWS;
+
+    static {
+        String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+        IS_WINDOWS = os.contains("win");
+    }
+
     private static final int FILE_MAP_READ = 0x0004;
     private static final int HWINFOMAP_BYTES = 512 * 1024;
     private static final int CORETEMP_BYTES = 4096;
-    private final GpuEngineSampler gpuEngineSampler = new GpuEngineSampler();
+    private final GpuEngineSampler gpuEngineSampler;
+
+    Sensors() {
+        this.gpuEngineSampler = IS_WINDOWS ? new WindowsGpuEngineSampler() : new DummyGpuEngineSampler();
+    }
 
     Sample sample(String activeRenderer, String activeVendor) {
+        if (!IS_WINDOWS) {
+            return Sample.empty();
+        }
+
         SensorAccumulator sensors = new SensorAccumulator(activeRenderer, activeVendor);
         double cpuLoad = sampleCpuLoad();
         double pdhGpuLoad = gpuEngineSampler.sample(sensors);
@@ -104,6 +119,7 @@ final class NativeWindowsSensors {
     }
 
     private void readHwInfoSharedMemory(SensorAccumulator sensors) {
+        if (!IS_WINDOWS) return;
         String[] mappingNames = {"Global\\HWiNFO_SENS_SM2", "HWiNFO_SENS_SM2"};
         for (String mappingName : mappingNames) {
             sensors.addAttempt("HWiNFO Shared Memory");
@@ -146,6 +162,7 @@ final class NativeWindowsSensors {
     }
 
     private void readCoreTempSharedMemory(SensorAccumulator sensors) {
+        if (!IS_WINDOWS) return;
         String[] mappingNames = {"CoreTempMappingObjectEx", "CoreTempMappingObject"};
         for (String mappingName : mappingNames) {
             sensors.addAttempt("Core Temp Shared Memory");
@@ -420,14 +437,19 @@ final class NativeWindowsSensors {
         }
     }
 
-    private static final class GpuEngineSampler {
+    private interface GpuEngineSampler {
+        double sample(SensorAccumulator sensors);
+    }
+
+   private static final class WindowsGpuEngineSampler implements GpuEngineSampler {
         private static final long INSTANCE_REFRESH_MS = 5_000L;
         private WinNT.HANDLE queryHandle;
         private final List<WinNT.HANDLE> counterHandles = new ArrayList<>();
         private long lastRefreshAtMillis;
         private boolean primed;
 
-        private double sample(SensorAccumulator sensors) {
+        @Override
+        public double sample(SensorAccumulator sensors) {
             synchronized (this) {
                 sensors.addAttempt("Windows PDH GPU Counters");
                 if (!ensureQuery(sensors)) {
@@ -531,6 +553,13 @@ final class NativeWindowsSensors {
             formattedValue.value.read();
             double value = formattedValue.value.doubleValue;
             return Double.isFinite(value) ? value : -1.0;
+        }
+    }
+
+    private static final class DummyGpuEngineSampler implements GpuEngineSampler {
+        @Override
+        public double sample(SensorAccumulator sensors) {
+            return -1.0;
         }
     }
 
