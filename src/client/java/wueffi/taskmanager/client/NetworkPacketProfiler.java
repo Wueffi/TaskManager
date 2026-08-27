@@ -1,11 +1,12 @@
 package wueffi.taskmanager.client;
 
+import net.minecraft.network.packet.Packet;
+
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.network.protocol.Packet;
 
 public class NetworkPacketProfiler {
 
@@ -48,6 +49,9 @@ public class NetworkPacketProfiler {
     private final Map<String, Long> outboundByType = new LinkedHashMap<>();
 
     public void recordInbound(Packet<?> packet) {
+        if (!ProfilerManager.getInstance().shouldCollectFrameMetrics()) {
+            return;
+        }
         synchronized (lock) {
             inboundPackets++;
             ClassifiedPacket classified = classify(packet);
@@ -57,6 +61,9 @@ public class NetworkPacketProfiler {
     }
 
     public void recordOutbound(Packet<?> packet) {
+        if (!ProfilerManager.getInstance().shouldCollectFrameMetrics()) {
+            return;
+        }
         synchronized (lock) {
             outboundPackets++;
             ClassifiedPacket classified = classify(packet);

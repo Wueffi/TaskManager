@@ -1,5 +1,7 @@
 package wueffi.taskmanager.client;
 
+import net.minecraft.entity.Entity;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -7,7 +9,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
-import net.minecraft.world.entity.Entity;
 
 public final class EntityCostProfiler {
 

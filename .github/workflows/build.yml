@@ -47,11 +47,7 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag_name }}
           name: "Task Manager ${{ steps.tag.outputs.tag_name }}"
-          body: |
-            ## Automated Build Release
-            This release was built automatically by GitHub Actions.
-            ### Changes
-            - Fixed a crash on Linux caused by loading the Windows PDH library.
+          body: "Automated build for this release tag."
           draft: false
           prerelease: ${{ inputs.prerelease || false }}
           files: |
