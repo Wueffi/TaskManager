@@ -213,8 +213,7 @@ public class RenderPhaseProfiler {
     private String getCurrentContextOwner() {
         Deque<String> owners = contextOwnersByThread.get(Thread.currentThread().threadId());
         if (owners == null || owners.isEmpty()) {
-            ModExecutionContext.ActiveContext activeContext = ModExecutionContext.getCurrentContext();
-            return activeContext == null ? null : normalizeContextOwner(activeContext.modId());
+            return null;
         }
         return normalizeContextOwner(owners.peekLast());
     }

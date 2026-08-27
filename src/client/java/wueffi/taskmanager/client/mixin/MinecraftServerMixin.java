@@ -13,13 +13,13 @@ import java.util.function.BooleanSupplier;
 @Mixin(MinecraftServer.class)
 public class MinecraftServerMixin {
 
-    @Inject(method = "tickServer", at = @At("HEAD"))
+    @Inject(method = "tick", at = @At("HEAD"))
     private void taskmanager$onServerTickStart(BooleanSupplier shouldKeepTicking, CallbackInfo ci) {
         if (!TaskManagerScreen.isLiveMetricsActive()) return;
         TickProfiler.getInstance().beginServerTick();
     }
 
-    @Inject(method = "tickServer", at = @At("TAIL"))
+    @Inject(method = "tick", at = @At("TAIL"))
     private void taskmanager$onServerTickEnd(BooleanSupplier shouldKeepTicking, CallbackInfo ci) {
         if (!TaskManagerScreen.isLiveMetricsActive()) return;
         TickProfiler.getInstance().endServerTick();

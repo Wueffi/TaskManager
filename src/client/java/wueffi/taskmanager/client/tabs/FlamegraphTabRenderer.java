@@ -1,8 +1,9 @@
 package wueffi.taskmanager.client;
 
+import net.minecraft.client.gui.DrawContext;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
 import java.util.Locale;
 
 final class FlamegraphTabRenderer {
@@ -10,7 +11,7 @@ final class FlamegraphTabRenderer {
     private FlamegraphTabRenderer() {
     }
 
-    static void render(TaskManagerScreen screen, GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+    static void render(TaskManagerScreen screen, DrawContext ctx, int x, int y, int w, int h) {
         var textRenderer = screen.uiTextRenderer();
         screen.beginFullPageScissor(ctx, x, y, w, h);
         int top = screen.getFullPageScrollTop(y);
@@ -23,13 +24,13 @@ final class FlamegraphTabRenderer {
             }
         });
         if (stacks.isEmpty()) {
-            ctx.text(textRenderer, screen.globalSearch.isBlank() ? "No flamegraph samples yet." : "No flamegraph stacks match the universal search.", x + TaskManagerScreen.PADDING, rowY, TaskManagerScreen.TEXT_DIM, false);
+            ctx.drawText(textRenderer, screen.globalSearch.isBlank() ? "No flamegraph samples yet." : "No flamegraph stacks match the universal search.", x + TaskManagerScreen.PADDING, rowY, TaskManagerScreen.TEXT_DIM, false);
         } else {
             int shown = 0;
             for (Map.Entry<String, Long> entry : stacks.entrySet()) {
-                ctx.text(textRenderer, textRenderer.plainSubstrByWidth(entry.getKey(), w - 120), x + TaskManagerScreen.PADDING, rowY, TaskManagerScreen.TEXT_DIM, false);
+                ctx.drawText(textRenderer, textRenderer.trimToWidth(entry.getKey(), w - 120), x + TaskManagerScreen.PADDING, rowY, TaskManagerScreen.TEXT_DIM, false);
                 String count = screen.formatCount(entry.getValue());
-                ctx.text(textRenderer, count, x + w - TaskManagerScreen.PADDING - textRenderer.width(count), rowY, TaskManagerScreen.TEXT_PRIMARY, false);
+                ctx.drawText(textRenderer, count, x + w - TaskManagerScreen.PADDING - textRenderer.getWidth(count), rowY, TaskManagerScreen.TEXT_PRIMARY, false);
                 rowY += 12;
                 if (++shown >= 20) {
                     break;

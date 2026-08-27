@@ -2,12 +2,13 @@ package wueffi.taskmanager.client.util;
 
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.Identifier;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.texture.NativeImage;
+import net.minecraft.client.texture.NativeImageBackedTexture;
+import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.mojang.blaze3d.platform.NativeImage;
+
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.HashMap;
@@ -19,9 +20,9 @@ public class ModIconCache {
     public static ModIconCache getInstance() { return INSTANCE; }
     public static final Logger LOGGER = LoggerFactory.getLogger("taskmanager");
 
-    private static final Identifier DEFAULT_ICON   = Identifier.fromNamespaceAndPath("taskmanager", "default.png");
-    private static final Identifier MINECRAFT_ICON = Identifier.fromNamespaceAndPath("taskmanager", "minecraft.png");
-    private static final Identifier FABRIC_ICON    = Identifier.fromNamespaceAndPath("taskmanager", "fabric.png");
+    private static final Identifier DEFAULT_ICON   = Identifier.of("taskmanager", "default.png");
+    private static final Identifier MINECRAFT_ICON = Identifier.of("taskmanager", "minecraft.png");
+    private static final Identifier FABRIC_ICON    = Identifier.of("taskmanager", "fabric.png");
 
     private final Map<String, Identifier> cache = new HashMap<>();
 
@@ -46,10 +47,10 @@ public class ModIconCache {
                 try (InputStream is = Files.newInputStream(path)) {
 
                     NativeImage img = NativeImage.read(is);
-                    DynamicTexture tex = new DynamicTexture(() -> "taskmanager", img);
+                    NativeImageBackedTexture tex = new NativeImageBackedTexture(() -> "taskmanager", img);
 
-                    Identifier id = Identifier.fromNamespaceAndPath("taskmanager", "modicon/" + modId.replace(":", "_"));
-                    Minecraft.getInstance().getTextureManager().register(id, tex);
+                    Identifier id = Identifier.of("taskmanager", "modicon/" + modId.replace(":", "_"));
+                    MinecraftClient.getInstance().getTextureManager().registerTexture(id, tex);
 
                     return id;
                 } catch (Exception e) {

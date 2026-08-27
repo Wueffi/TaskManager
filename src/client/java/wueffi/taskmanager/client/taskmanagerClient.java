@@ -2,8 +2,7 @@ package wueffi.taskmanager.client;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
-import net.minecraft.resources.Identifier;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import wueffi.taskmanager.client.util.ConfigManager;
@@ -22,10 +21,7 @@ public class taskmanagerClient implements ClientModInitializer {
         ConfigManager.loadConfig();
         ProfilerManager.getInstance().initialize();
 
-        HudElementRegistry.addLast(
-                Identifier.fromNamespaceAndPath("taskmanager", "hud"),
-                (ctx, tickCounter) -> HudOverlayRenderer.render(ctx)
-        );
+        HudRenderCallback.EVENT.register((drawContext, tickCounter) -> HudOverlayRenderer.render(drawContext));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!startupClosed) {

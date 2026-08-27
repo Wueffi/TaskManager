@@ -1,29 +1,26 @@
 package wueffi.taskmanager.client.mixin;
 
-import net.minecraft.server.level.ServerChunkCache;
+import net.minecraft.server.world.ServerChunkManager;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import wueffi.taskmanager.client.ChunkWorkProfiler;
-import wueffi.taskmanager.client.TaskManagerScreen;
+import wueffi.taskmanager.client.ProfilerManager;
 
-@Mixin(ServerChunkCache.class)
+@Mixin(ServerChunkManager.class)
 public abstract class ServerChunkManagerMixin {
 
-    @Inject(method = "getChunkFuture", at = @At("HEAD"))
+    @Inject(method = "getChunkFutureSyncOnMainThread", at = @At("HEAD"))
     private void taskmanager$beginChunkLoad(CallbackInfoReturnable<?> cir) {
-        if (!TaskManagerScreen.isLiveMetricsActive()) {
+        if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) {
             return;
         }
         ChunkWorkProfiler.getInstance().beginPhase("minecraft | main-thread chunk load");
     }
 
-    @Inject(method = "getChunkFuture", at = @At("RETURN"))
+    @Inject(method = "getChunkFutureSyncOnMainThread", at = @At("RETURN"))
     private void taskmanager$endChunkLoad(CallbackInfoReturnable<?> cir) {
-        if (!TaskManagerScreen.isLiveMetricsActive()) {
-            return;
-        }
         ChunkWorkProfiler.getInstance().endPhase();
     }
 }

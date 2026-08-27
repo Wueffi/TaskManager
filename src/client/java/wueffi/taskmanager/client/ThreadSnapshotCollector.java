@@ -118,37 +118,28 @@ public final class ThreadSnapshotCollector {
         ProfilerManager profilerManager = ProfilerManager.getInstance();
         boolean flamegraphRunning = FlamegraphProfiler.getInstance().isRunning();
         if (flamegraphRunning) {
-            return 2;
+            return 5;
         }
         String governorMode = profilerManager.getCollectorGovernorMode();
         if (profilerManager.shouldCollectDetailedMetrics()) {
             return switch (governorMode) {
-                case "self-protect" -> 16;
-                case "burst" -> 2;
-                case "tight" -> 4;
-                case "light" -> 10;
-                default -> 6;
+                case "self-protect" -> 50;
+                case "burst" -> 10;
+                case "tight" -> 15;
+                case "light" -> 40;
+                default -> 20;
             };
         }
         if (profilerManager.isCaptureActive()) {
             return switch (governorMode) {
-                case "self-protect" -> 20;
-                case "burst" -> 4;
-                case "tight" -> 6;
-                case "light" -> 12;
-                default -> 8;
+                case "self-protect" -> 100;
+                case "burst" -> 20;
+                case "tight" -> 30;
+                case "light" -> 60;
+                default -> 40;
             };
         }
-        if (profilerManager.shouldCollectFrameMetrics()) {
-            return switch (governorMode) {
-                case "self-protect" -> 32;
-                case "burst" -> 8;
-                case "tight" -> 12;
-                case "light" -> 24;
-                default -> 16;
-            };
-        }
-        return "light".equals(governorMode) ? -1 : 48;
+        return -1;
     }
 
     private void collectSnapshot() {

@@ -5,27 +5,28 @@ import org.spongepowered.asm.mixin.Unique;
 import wueffi.taskmanager.client.RenderPhaseProfiler;
 import wueffi.taskmanager.client.TaskManagerScreen;
 import wueffi.taskmanager.client.util.GpuTimer;
-import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.client.renderer.SkyRenderer;
+import net.minecraft.client.render.SkyRendering;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.render.VertexConsumerProvider;
 import org.spongepowered.asm.mixin.Mixin;
 import wueffi.taskmanager.client.ProfilerManager;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(SkyRenderer.class)
+@Mixin(SkyRendering.class)
 public class SkyRenderingMixin {
 
     @Inject(
-            method = "renderSunMoonAndStars",
+            method = "renderCelestialBodies",
             at = @At("HEAD")
     )
     private void taskmanager$onSkyHead(
-            PoseStack matrices,
+            MatrixStack matrices,
             float sunAngle,
             float moonAngle,
             float starAngle,
-            net.minecraft.world.level.MoonPhase moonPhase,
+            net.minecraft.world.MoonPhase moonPhase,
             float alpha,
             float starBrightness,
             CallbackInfo ci) {
@@ -36,20 +37,19 @@ public class SkyRenderingMixin {
     }
 
     @Inject(
-            method = "renderSunMoonAndStars",
+            method = "renderCelestialBodies",
             at = @At("TAIL")
     )
     private void taskmanager$onSkyTail(
-            PoseStack matrices,
+            MatrixStack matrices,
             float sunAngle,
             float moonAngle,
             float starAngle,
-            net.minecraft.world.level.MoonPhase moonPhase,
+            net.minecraft.world.MoonPhase moonPhase,
             float alpha,
             float starBrightness,
             CallbackInfo ci) {
 
-        if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) return;
         GpuTimer.end("sky.renderCelestialBodies");
         RenderPhaseProfiler.getInstance().endCpuPhase("sky.renderCelestialBodies");
     }

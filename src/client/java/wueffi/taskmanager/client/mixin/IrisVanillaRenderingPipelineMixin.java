@@ -25,9 +25,6 @@ public class IrisVanillaRenderingPipelineMixin {
 
     @Unique
     private static void taskmanager$endPhase(String phase) {
-        if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) {
-            return;
-        }
         GpuTimer.end(phase);
         RenderPhaseProfiler.getInstance().endCpuPhase(phase);
     }

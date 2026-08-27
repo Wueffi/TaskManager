@@ -5,10 +5,8 @@ import wueffi.taskmanager.client.ProfilerManager;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import wueffi.taskmanager.client.ModTimingProfiler;
-import wueffi.taskmanager.client.ModExecutionContext;
 import wueffi.taskmanager.client.StartupTimingProfiler;
 import wueffi.taskmanager.client.RenderPhaseProfiler;
-import wueffi.taskmanager.client.TaskManagerScreen;
 import wueffi.taskmanager.client.util.ModClassIndex;
 
 import java.lang.reflect.Array;
@@ -32,35 +30,7 @@ public abstract class ArrayBackedEventMixin {
     )
     private Object taskmanager$wrapInvoker(java.util.function.Function<Object, Object> factory, Object listeners) {
         recordStartupListeners(listeners);
-        Object profilerAwareListeners = maybeWrapListeners(listeners);
-        Object original = factory.apply(profilerAwareListeners);
-
-        if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) {
-            return original;
-        }
-
-        Class<?>[] interfaces = original.getClass().getInterfaces();
-        if (interfaces.length == 0) {
-            return original;
-        }
-
-        return Proxy.newProxyInstance(
-                original.getClass().getClassLoader(),
-                interfaces,
-                (proxy, method, args) -> {
-                    long start = System.nanoTime();
-
-                    try {
-                        return method.invoke(original, args);
-                    } finally {
-                        long duration = System.nanoTime() - start;
-                        String mod = ModClassIndex.getModForClassName(original.getClass());
-                        if (mod == null) mod = "unknown";
-
-                        ModTimingProfiler.getInstance().record(mod, method.getName(), duration);
-                    }
-                }
-        );
+        return factory.apply(maybeWrapListeners(listeners));
     }
 
     private Object maybeWrapListeners(Object listeners) {
@@ -98,10 +68,11 @@ public abstract class ArrayBackedEventMixin {
                     listener.getClass().getClassLoader(),
                     new Class<?>[] {listenerInterface},
                     (proxy, method, args) -> {
+                        if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) {
+                            return method.invoke(listener, args);
+                        }
                         long start = System.nanoTime();
                         boolean renderThread = isRenderThread();
-                        String reason = "fabric event " + listenerInterface.getSimpleName() + "#" + method.getName();
-                        ModExecutionContext.push(resolvedMod, reason);
                         if (renderThread) {
                             RenderPhaseProfiler.getInstance().pushContextOwner(resolvedMod);
                         }
@@ -111,7 +82,6 @@ public abstract class ArrayBackedEventMixin {
                             if (renderThread) {
                                 RenderPhaseProfiler.getInstance().popContextOwner();
                             }
-                            ModExecutionContext.pop();
                             long duration = System.nanoTime() - start;
                             ModTimingProfiler.getInstance().record(resolvedMod, method.getName(), duration);
                         }
