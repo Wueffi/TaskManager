@@ -10,7 +10,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import wueffi.taskmanager.client.ProfilerManager;
 import wueffi.taskmanager.client.RenderPhaseProfiler;
-import wueffi.taskmanager.client.util.GpuTimer;
 
 @Mixin(ParticleEngine.class)
 public class ParticleManagerMixin {
@@ -19,13 +18,11 @@ public class ParticleManagerMixin {
     private void taskmanager$onParticlesHead(ParticlesRenderState batch, Frustum frustum, Camera camera, float tickDelta, CallbackInfo ci) {
         if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) return;
         RenderPhaseProfiler.getInstance().beginCpuPhase("particles.render", "shared/render");
-        GpuTimer.begin("particles.render");
     }
 
     @Inject(method = "extract", at = @At("TAIL"))
     private void taskmanager$onParticlesTail(ParticlesRenderState batch, Frustum frustum, Camera camera, float tickDelta, CallbackInfo ci) {
         if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) return;
-        GpuTimer.end("particles.render");
         RenderPhaseProfiler.getInstance().endCpuPhase("particles.render");
     }
 }

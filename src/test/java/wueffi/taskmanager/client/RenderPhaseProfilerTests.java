@@ -1,5 +1,7 @@
 package wueffi.taskmanager.client;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 public final class RenderPhaseProfilerTests {
 
     private RenderPhaseProfilerTests() {
@@ -8,6 +10,62 @@ public final class RenderPhaseProfilerTests {
     public static void run() {
         nestedCpuScopesTrackEachPhaseSeparately();
         renderContextOwnerBecomesLikelyOwnerHint();
+        drainPreservesActiveScopeAndContext();
+        ownerSamplingCanRaceScopeUpdatesAndDrains();
+    }
+
+    private static void ownerSamplingCanRaceScopeUpdatesAndDrains() {
+        RenderPhaseProfiler profiler = RenderPhaseProfiler.getInstance();
+        profiler.reset();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        long renderThread = Thread.currentThread().threadId();
+        Thread sampler = new Thread(() -> {
+            try {
+                for (int i = 0; i < 2_000; i++) {
+                    profiler.recordLikelyOwnerSample(renderThread, "chunky", "worker#draw");
+                    profiler.drainSnapshot();
+                }
+            } catch (Throwable e) {
+                failure.set(e);
+            }
+        });
+        sampler.setDaemon(true);
+        sampler.start();
+        for (int i = 0; i < 2_000; i++) {
+            profiler.beginCpuPhase("outer", "shared/render");
+            profiler.beginCpuPhase("inner", "shared/render");
+            profiler.endCpuPhase("inner");
+            profiler.endCpuPhase("outer");
+        }
+        try {
+            sampler.join(5_000L);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("concurrent scope test interrupted", e);
+        }
+        assertTrue(!sampler.isAlive(), "concurrent sampling/draining must terminate");
+        if (failure.get() != null) {
+            throw new AssertionError("concurrent scope access failed", failure.get());
+        }
+        profiler.reset();
+    }
+
+    private static void drainPreservesActiveScopeAndContext() {
+        RenderPhaseProfiler profiler = RenderPhaseProfiler.getInstance();
+        profiler.reset();
+        profiler.pushContextOwner("chunky");
+        profiler.beginCpuPhase("outer", "shared/render");
+        profiler.drainSnapshot();
+        profiler.beginCpuPhase("inner", "shared/render");
+        profiler.endCpuPhase("inner");
+        profiler.endCpuPhase("outer");
+        profiler.popContextOwner();
+        var snapshot = profiler.drainSnapshot();
+        assertNotNull(snapshot.get("outer"), "drain must not discard an in-flight phase");
+        assertEquals(1L, snapshot.get("outer").cpuCalls(), "in-flight phase completes once");
+        assertEquals(1L, snapshot.get("inner").likelyOwners().getOrDefault("chunky", 0L), "context survives a drain");
+        assertTrue(profiler.drainSnapshot().isEmpty(), "drained counters must not reappear");
+        profiler.reset();
     }
 
     private static void nestedCpuScopesTrackEachPhaseSeparately() {

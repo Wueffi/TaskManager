@@ -17,6 +17,7 @@ final class MemoryTabRenderer {
     static void render(TaskManagerScreen screen, GuiGraphicsExtractor ctx, int x, int y, int w, int h, int mouseX, int mouseY) {
         var textRenderer = screen.uiTextRenderer();
         MemoryProfiler.Snapshot memory = screen.snapshot.memory();
+        SystemMetricsProfiler.Snapshot system = screen.snapshot.systemMetrics();
         TextureUploadProfiler.Snapshot textureUploads = TextureUploadProfiler.getInstance().getSnapshot();
         Map<String, Long> rawMemoryMods = screen.snapshot.memoryMods();
         Map<String, Long> sharedFamilies = screen.snapshot.sharedMemoryFamilies();
@@ -40,21 +41,24 @@ final class MemoryTabRenderer {
         int tableW = w - sharedPanelW - panelGap;
         int left = x + TaskManagerScreen.PADDING;
         int top = y + TaskManagerScreen.PADDING;
-        int descriptionBottomY = screen.renderWrappedText(ctx, left, top, Math.max(260, tableW - 16), screen.memoryEffectiveView ? "Effective live heap by mod with shared/runtime buckets folded into concrete mods for comparison. Updated asynchronously." : "Raw live heap by owner/class family. Shared/runtime buckets stay separate until you switch back to Effective view.", TaskManagerScreen.TEXT_DIM);
+        int descriptionBottomY = screen.renderWrappedText(ctx, left, top, Math.max(260, tableW - 16), screen.memoryEffectiveView ? "Estimated shallow heap bytes by class; shared heap is redistributed. Includes unreachable objects, not retained ownership." : "Shallow heap bytes by class, including unreachable objects. Shared heap stays separate; native memory and unused capacity are excluded.", TaskManagerScreen.TEXT_DIM);
         ctx.text(textRenderer, screen.memoryStatusText(screen.snapshot.memoryAgeMillis()), left, descriptionBottomY + 2, screen.snapshot.memoryAgeMillis() <= 15000 ? TaskManagerScreen.ACCENT_GREEN : TaskManagerScreen.ACCENT_YELLOW, false);
 
         long heapMax = memory.heapMaxBytes() > 0 ? memory.heapMaxBytes() : memory.heapCommittedBytes();
         double usedPct = heapMax > 0 ? (memory.heapUsedBytes() * 100.0 / heapMax) : 0;
 
-        ctx.text(textRenderer, "Tip: Effective view proportionally folds shared/runtime memory into mod rows for readability.", left, descriptionBottomY + 12, TaskManagerScreen.TEXT_DIM, false);
-        screen.addTooltip(left, descriptionBottomY + 12, 430, 10, "Effective view proportionally folds shared/runtime memory into concrete mods. Raw view keeps true-owned and shared buckets separate.");
+        ctx.text(textRenderer, "Tip: Effective view redistributes shared heap by size, not by proven ownership.", left, descriptionBottomY + 12, TaskManagerScreen.TEXT_DIM, false);
+        screen.addTooltip(left, descriptionBottomY + 12, 430, 10, "Effective view estimates shared heap shares. Raw view groups shallow object sizes by class, not retained ownership.");
         int controlsTopY = descriptionBottomY + 26;
         screen.drawTopChip(ctx, x + tableW - 222, controlsTopY, 112, 16, !screen.memoryEffectiveView && screen.memoryShowSharedRows);
         ctx.text(textRenderer, screen.memoryShowSharedRows ? "Shared Rows" : "Hide Shared", x + tableW - 206, controlsTopY + 4, (!screen.memoryEffectiveView && screen.memoryShowSharedRows) ? TaskManagerScreen.TEXT_PRIMARY : TaskManagerScreen.TEXT_DIM, false);
-        screen.addTooltip(x + tableW - 222, controlsTopY, 112, 16, "In Raw view, show or hide shared/jvm, shared/framework, and runtime rows. Effective view already folds them into mod rows.");
+        screen.addTooltip(x + tableW - 222, controlsTopY, 112, 16, "In Raw view, show or hide shared/jvm and shared/framework heap rows. Native memory stays in the JVM summary.");
         screen.drawTopChip(ctx, x + tableW - 112, controlsTopY, 98, 16, screen.memoryEffectiveView);
         ctx.text(textRenderer, screen.memoryEffectiveView ? "Effective" : "Raw", x + tableW - 86, controlsTopY + 4, screen.memoryEffectiveView ? TaskManagerScreen.TEXT_PRIMARY : TaskManagerScreen.TEXT_DIM, false);
-        screen.addTooltip(x + tableW - 112, controlsTopY, 98, 16, "Toggle between raw memory ownership and effective ownership with redistributed shared/runtime memory.");
+        screen.addTooltip(x + tableW - 112, controlsTopY, 98, 16, "Toggle between shallow bytes by class and estimated shares of shared heap.");
+        screen.drawTopChip(ctx, x + tableW - 222, controlsTopY + 18, 112, 16, false);
+        ctx.text(textRenderer, "Refresh Heap", x + tableW - 210, controlsTopY + 22, TaskManagerScreen.TEXT_DIM, false);
+        screen.addTooltip(x + tableW - 222, controlsTopY + 18, 112, 16, "On-demand heap histogram. May briefly freeze the game; rate-limited to once per 10 seconds. Not collected automatically.");
         screen.drawTopChip(ctx, x + tableW - 106, controlsTopY + 18, 98, 16, false);
         ctx.text(textRenderer, "Memory Graph", x + tableW - 92, controlsTopY + 22, TaskManagerScreen.TEXT_DIM, false);
 
@@ -99,9 +103,9 @@ final class MemoryTabRenderer {
         ctx.text(textRenderer, textRenderer.plainSubstrByWidth("Allocation pressure: " + screen.summarizeAllocationPressure(), tableW - 24), left, barY + 76, TaskManagerScreen.TEXT_DIM, false);
         ctx.text(textRenderer, textRenderer.plainSubstrByWidth(String.format(Locale.ROOT,
                 "VRAM tracked: used %s | reserved %s | uploads %s/s | texture uploads %s",
-                screen.formatBytesMb(screen.snapshot.systemMetrics().vramUsedBytes()),
-                screen.formatBytesMb(screen.snapshot.systemMetrics().vramTotalBytes()),
-                screen.formatBytesMb(screen.snapshot.systemMetrics().textureUploadRate()),
+                screen.formatBytesMb(system.vramUsedBytes()),
+                screen.formatBytesMb(system.vramTotalBytes()),
+                screen.formatBytesMb(system.textureUploadRate()),
                 screen.formatBytesMb(textureUploads.totalBytes())), tableW - 24), left, barY + 88, TaskManagerScreen.TEXT_DIM, false);
         String topUploadMods = textureUploads.bytesByMod().entrySet().stream()
                 .limit(3)
@@ -109,6 +113,10 @@ final class MemoryTabRenderer {
                 .reduce((a, b) -> a + " | " + b)
                 .orElse("none");
         ctx.text(textRenderer, textRenderer.plainSubstrByWidth("Top texture upload mods: " + topUploadMods, tableW - 24), left, barY + 100, TaskManagerScreen.TEXT_DIM, false);
+        ctx.text(textRenderer, textRenderer.plainSubstrByWidth(
+                "Native/off-heap render staging: " + screen.formatBytesMb(system.renderStagingBufferBytes())
+                        + " | " + system.renderStagingBufferKind() + " (outside JVM buffer-pool totals)",
+                tableW - 24), left, barY + 112, TaskManagerScreen.TEXT_DIM, false);
 
         if (sharedPanelW > 0) {
             screen.renderSharedFamiliesPanel(ctx, x + tableW + panelGap, y + TaskManagerScreen.PADDING, sharedPanelW, h - (TaskManagerScreen.PADDING * 2), sharedFamilies);
@@ -119,7 +127,7 @@ final class MemoryTabRenderer {
             return;
         }
 
-        int headerY = barY + 120;
+        int headerY = barY + 132;
         ctx.fill(x, headerY, x + tableW, headerY + 14, TaskManagerScreen.HEADER_COLOR);
         ctx.text(textRenderer, "MOD", x + TaskManagerScreen.PADDING + 22, headerY + 3, TaskManagerScreen.TEXT_DIM, false);
         screen.addTooltip(x + TaskManagerScreen.PADDING + 22, headerY + 1, 44, 14, "Sort by mod display name.");

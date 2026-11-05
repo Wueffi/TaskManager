@@ -6,6 +6,7 @@ import wueffi.taskmanager.client.RenderPhaseProfiler;
 import wueffi.taskmanager.client.TaskManagerScreen;
 import wueffi.taskmanager.client.util.GpuTimer;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.renderpearl.api.commands.RenderPass;
 import net.minecraft.client.renderer.SkyRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import wueffi.taskmanager.client.ProfilerManager;
@@ -21,6 +22,7 @@ public class SkyRenderingMixin {
             at = @At("HEAD")
     )
     private void taskmanager$onSkyHead(
+            RenderPass renderPass,
             PoseStack matrices,
             float sunAngle,
             float moonAngle,
@@ -40,6 +42,7 @@ public class SkyRenderingMixin {
             at = @At("TAIL")
     )
     private void taskmanager$onSkyTail(
+            RenderPass renderPass,
             PoseStack matrices,
             float sunAngle,
             float moonAngle,

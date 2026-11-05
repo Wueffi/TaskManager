@@ -12,6 +12,21 @@ public final class AttributionModelBuilderTests {
         gpuPhaseOwnerPromotesWhenLikelyOwnerIsStrong();
         gpuPhaseOwnerStaysSharedWhenLikelyOwnerIsWeak();
         cpuRedistributionDownweightsRenderSubmissionHeavyMods();
+        rawGpuOwnershipDoesNotPromoteCpuHints();
+    }
+
+    private static void rawGpuOwnershipDoesNotPromoteCpuHints() {
+        Map<String, RenderPhaseProfiler.PhaseSnapshot> phases = Map.of("world", new RenderPhaseProfiler.PhaseSnapshot(
+                0L, 0L, 10_000_000L, 1L, "shared/render", Map.of("iris", 10L), Map.of()));
+        AttributionModelBuilder.EffectiveCpuAttribution cpu = AttributionModelBuilder.buildEffectiveCpuAttribution(Map.of(), Map.of(), Map.of());
+        AttributionModelBuilder.EffectiveGpuAttribution raw = AttributionModelBuilder.buildEffectiveGpuAttribution(phases, Map.of(), cpu, false);
+        if (raw.gpuNanosByMod().getOrDefault("shared/render", 0L) != 10_000_000L || raw.gpuNanosByMod().containsKey("iris")) {
+            throw new AssertionError("raw GPU timings must retain tagged ownership, not CPU hints");
+        }
+        AttributionModelBuilder.EffectiveGpuAttribution effective = AttributionModelBuilder.buildEffectiveGpuAttribution(phases, Map.of(), cpu, true);
+        if (effective.gpuNanosByMod().getOrDefault("iris", 0L) != 10_000_000L) {
+            throw new AssertionError("effective view should retain its explicitly heuristic owner estimate");
+        }
     }
 
     private static void gpuPhaseOwnerPromotesWhenLikelyOwnerIsStrong() {

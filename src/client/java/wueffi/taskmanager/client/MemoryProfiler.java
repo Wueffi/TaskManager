@@ -2,6 +2,8 @@ package wueffi.taskmanager.client;
 
 import com.sun.management.ThreadMXBean;
 import wueffi.taskmanager.client.util.ModClassIndex;
+import wueffi.taskmanager.client.util.ConfigManager;
+import wueffi.taskmanager.client.util.BoundedMaps;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -44,7 +46,7 @@ public class MemoryProfiler {
     private volatile Map<String, Long> sharedClassFamilies = Map.of();
     private volatile Map<String, Map<String, Long>> sharedFamilyClasses = Map.of();
     private volatile Map<String, Map<String, Long>> topClassesByMod = Map.of();
-    private final Map<String, String> classModCache = new ConcurrentHashMap<>();
+    private final Map<String, String> classModCache = BoundedMaps.synchronizedLru(8_192);
     private final Map<String, Long> lastGcCountsByName = new ConcurrentHashMap<>();
     private final Map<String, Long> lastGcTimesByName = new ConcurrentHashMap<>();
     private final Map<Long, Long> lastAllocatedBytesByThread = new ConcurrentHashMap<>();
@@ -78,6 +80,10 @@ public class MemoryProfiler {
     }
 
     public void sampleJvm() {
+        long now = System.currentTimeMillis();
+        if (!ProfilerManager.shouldPublishSnapshot(false, now, lastJvmSampleAtMillis.get(), ConfigManager.getMetricsUpdateIntervalMs())) {
+            return;
+        }
         try {
             MemoryMXBean bean = ManagementFactory.getMemoryMXBean();
             List<GarbageCollectorMXBean> gcBeans = ManagementFactory.getGarbageCollectorMXBeans();
@@ -183,13 +189,16 @@ public class MemoryProfiler {
         }
     }
 
+    private volatile long lastModAttemptAtMillis;
+
     public void requestPerModSample() {
-        if (getLastModSampleAgeMillis() < MIN_MOD_SAMPLE_INTERVAL_MS) {
+        if (getLastModSampleAgeMillis() < MIN_MOD_SAMPLE_INTERVAL_MS || System.currentTimeMillis() - lastModAttemptAtMillis < MIN_MOD_SAMPLE_INTERVAL_MS) {
             return;
         }
         if (!modSampleInFlight.compareAndSet(false, true)) {
             return;
         }
+        lastModAttemptAtMillis = System.currentTimeMillis();
         modHistogramExecutor.execute(() -> {
             try {
                 samplePerMod();
@@ -210,7 +219,8 @@ public class MemoryProfiler {
             Object result = server.invoke(
                     DIAGNOSTIC_COMMAND_NAME,
                     "gcClassHistogram",
-                    new Object[]{new String[0]},
+                    // Include unreachable objects rather than requesting a full GC for profiling.
+                    new Object[]{new String[]{"-all"}},
                     new String[]{String[].class.getName()}
             );
 
@@ -252,13 +262,6 @@ public class MemoryProfiler {
                     familyClasses.computeIfAbsent(family, ignored -> new LinkedHashMap<>()).merge(className, bytes, Long::sum);
                 }
             }
-
-            addRuntimeBucket(bytesByMod, "runtime/native-direct-buffers", snapshot.directBufferBytes());
-            addRuntimeBucket(bytesByMod, "runtime/native-mapped-buffers", snapshot.mappedBufferBytes());
-            addRuntimeBucket(bytesByMod, "runtime/metaspace", snapshot.metaspaceBytes());
-            addRuntimeBucket(bytesByMod, "runtime/code-cache", snapshot.codeCacheBytes());
-            addRuntimeBucket(bytesByMod, "runtime/class-space", snapshot.classSpaceBytes());
-            addRuntimeBucket(bytesByMod, "runtime/gc-headroom", snapshot.gcHeadroomBytes());
 
             modMemoryBytes = bytesByMod.entrySet().stream()
                     .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder()))
@@ -450,12 +453,6 @@ public class MemoryProfiler {
     private boolean isOldGenCollector(String name) {
         String lower = name.toLowerCase();
         return lower.contains("old") || lower.contains("mark") || lower.contains("mixed") || lower.contains("full") || lower.contains("tenured");
-    }
-
-    private void addRuntimeBucket(Map<String, Long> bytesByMod, String id, long bytes) {
-        if (bytes > 0) {
-            bytesByMod.put(id, bytes);
-        }
     }
 
     private String normalizeHistogramClassName(String rawClassName) {

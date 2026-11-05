@@ -1,6 +1,10 @@
 package wueffi.taskmanager.client;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class CpuSamplingProfilerTests {
 
@@ -10,6 +14,59 @@ public final class CpuSamplingProfilerTests {
     public static void run() {
         fallbackFramePrefersNonRuntimeFrameOverDriverFrame();
         gpuDriverWaitClassifiesIntoSharedStallBucket();
+        drainPreservesSamplingBaselineButResetClearsIt();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void drainPreservesSamplingBaselineButResetClearsIt() {
+        CpuSamplingProfiler profiler = CpuSamplingProfiler.getInstance();
+        try {
+            profiler.reset();
+            Field baselinesField = CpuSamplingProfiler.class.getDeclaredField("lastThreadCpuTimes");
+            baselinesField.setAccessible(true);
+            Map<Long, Long> baselines = (Map<Long, Long>) baselinesField.get(profiler);
+            Field sampleTimeField = CpuSamplingProfiler.class.getDeclaredField("lastSampleAtMillis");
+            sampleTimeField.setAccessible(true);
+            AtomicLong sampleTime = (AtomicLong) sampleTimeField.get(profiler);
+            baselines.put(42L, 123_456L);
+            long capturedAt = System.currentTimeMillis() - 100L;
+            sampleTime.set(capturedAt);
+
+            Method sampleThread = CpuSamplingProfiler.class.getDeclaredMethod("sampleThread", long.class, List.class, long.class, long.class);
+            sampleThread.setAccessible(true);
+            List<ThreadSnapshotCollector.ThreadStackSnapshot> snapshots = List.of(
+                    new ThreadSnapshotCollector.ThreadStackSnapshot(42L, "Render thread", new StackTraceElement[]{
+                            new StackTraceElement("net.minecraft.client.Minecraft", "runTick", "Minecraft.java", 1)
+                    }));
+            sampleThread.invoke(profiler, 42L, snapshots, 17L, 1_000_000L);
+            long firstBudget = profiler.drainWindow().samples().values().stream().mapToLong(CpuSamplingProfiler.Snapshot::totalCpuNanos).sum();
+            if (firstBudget != 17L || !profiler.drainWindow().samples().isEmpty()) {
+                throw new AssertionError("drain must emit each CPU budget exactly once");
+            }
+            if (!Long.valueOf(123_456L).equals(baselines.get(42L)) || sampleTime.get() != capturedAt) {
+                throw new AssertionError("tick drains must preserve CPU and wall-time baselines, including empty windows");
+            }
+            sampleThread.invoke(profiler, 42L, snapshots, 23L, 1_000_000L);
+            long secondBudget = profiler.drainWindow().samples().values().stream().mapToLong(CpuSamplingProfiler.Snapshot::totalCpuNanos).sum();
+            if (secondBudget != 23L) {
+                throw new AssertionError("next window must contain only its own CPU budget");
+            }
+            baselines.put(Long.MAX_VALUE, 1L);
+            Method refreshThreads = CpuSamplingProfiler.class.getDeclaredMethod("getCachedThreadIds", long.class);
+            refreshThreads.setAccessible(true);
+            refreshThreads.invoke(profiler, System.currentTimeMillis());
+            if (baselines.containsKey(Long.MAX_VALUE)) {
+                throw new AssertionError("thread refresh must release baselines for terminated threads");
+            }
+            profiler.reset();
+            if (!baselines.isEmpty() || sampleTime.get() != 0L) {
+                throw new AssertionError("explicit capture reset must discard the old baseline");
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("reflection failure", e);
+        } finally {
+            profiler.reset();
+        }
     }
 
     private static void fallbackFramePrefersNonRuntimeFrameOverDriverFrame() {

@@ -6,7 +6,6 @@ import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
 import wueffi.taskmanager.client.ProfilerManager;
 import wueffi.taskmanager.client.TaskManagerScreen;
 import wueffi.taskmanager.client.util.ConfigManager;
@@ -25,20 +24,20 @@ public class KeyBindHandler {
         KeyMapping.Category taskManagerCategory = new KeyMapping.Category(Identifier.fromNamespaceAndPath("taskmanager", "taskmanager"));
         sessionKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.taskmanager.session",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_F9,
+                InputConstants.Type.KEYBOARD,
+                InputConstants.KEY_F9,
                 taskManagerCategory
         ));
         hudToggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.taskmanager.hud_toggle",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_F10,
+                InputConstants.Type.KEYBOARD,
+                InputConstants.KEY_F10,
                 taskManagerCategory
         ));
         openKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.taskmanager.open",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_F12,
+                InputConstants.Type.KEYBOARD,
+                InputConstants.KEY_F12,
                 taskManagerCategory
         ));
 

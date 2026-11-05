@@ -55,6 +55,7 @@ final class SessionExporter {
     }
 
     ProfilerManager.ExportResult runSessionExport(ProfilerManager manager) {
+        ShaderPassProfiler.Capture shaderCapture = ShaderPassProfiler.capture();
         Map<String, Object> export = manager.buildSessionExportPayload();
         Path dir = sessionDirectory();
         try {
@@ -66,8 +67,15 @@ final class SessionExporter {
             Files.writeString(htmlFile, manager.buildSessionHtmlReport(export));
             Path traceFile = dir.resolve("taskmanager-session-" + exportTimestamp + ".trace.json");
             Files.writeString(traceFile, manager.buildChromeTraceJson());
+            Path shaderFile = dir.resolve("taskmanager-shader-passes-" + exportTimestamp + ".csv");
+            Files.writeString(shaderFile, ShaderPassProfiler.csv(shaderCapture));
+            Files.writeString(dir.resolve("taskmanager-shader-passes-" + exportTimestamp + ".metadata.json"), GSON.toJson(Map.of("sessions", shaderCapture.sessions(), "evicted_frames", shaderCapture.evictedFrames(),
+                    "frame_limit", shaderCapture.frameLimit(), "sample_limit", shaderCapture.sampleLimit(), "frames", shaderCapture.frames(),
+                    "omitted_name_limit_samples", shaderCapture.omittedNameLimitSamples(),
+                    "status_counts", shaderCapture.samples().stream().collect(java.util.stream.Collectors.groupingBy(
+                            RenderPhaseProfiler.ShaderPassSample::status, java.util.stream.Collectors.counting())))));
             manager.logSessionExport(file);
-            return new ProfilerManager.ExportResult("Exported " + file.getFileName() + " + " + htmlFile.getFileName() + " + " + traceFile.getFileName(), dir, htmlFile, traceFile);
+            return new ProfilerManager.ExportResult("Exported " + file.getFileName() + " + " + htmlFile.getFileName() + " + " + traceFile.getFileName() + " + " + shaderFile.getFileName(), dir, htmlFile, traceFile);
         } catch (Exception e) {
             return new ProfilerManager.ExportResult("Export failed: " + e.getMessage(), null, null, null);
         }

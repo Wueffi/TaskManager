@@ -1,6 +1,5 @@
 package wueffi.taskmanager.client.mixin;
 
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -20,28 +19,35 @@ public class GameRendererMixin {
     @Unique
     private boolean taskmanager$detailedFrame;
 
+    @Unique
+    private boolean taskmanager$liveFrame;
+
     @Inject(method = "render", at = @At("HEAD"))
-    private void taskmanager$onRenderHead(DeltaTracker tickCounter, boolean tick, CallbackInfo ci) {
-        if (!TaskManagerScreen.isLiveMetricsActive()) return;
+    private void taskmanager$onRenderHead(CallbackInfo ci) {
+        wueffi.taskmanager.client.ShaderPassProfiler.beginFrame();
+        taskmanager$liveFrame = TaskManagerScreen.isLiveMetricsActive();
+        if (!taskmanager$liveFrame) return;
 
         FrameTimelineProfiler.getInstance().beginFrame();
         taskmanager$detailedFrame = ProfilerManager.getInstance().shouldCollectDetailedMetrics();
         if (taskmanager$detailedFrame) {
-            GpuTimer.collectResults();
             RenderPhaseProfiler.getInstance().beginCpuPhase("frame.total", "minecraft");
+            GpuTimer.begin("frame.total");
         }
     }
 
-    @Inject(method = "render", at = @At("TAIL"))
-    private void taskmanager$onRenderTail(DeltaTracker tickCounter, boolean tick, CallbackInfo ci) {
-        if (!TaskManagerScreen.isLiveMetricsActive()) return;
+    @Inject(method = "render", at = @At("RETURN"))
+    private void taskmanager$onRenderTail(CallbackInfo ci) {
+        if (!taskmanager$liveFrame) return;
 
         if (taskmanager$detailedFrame) {
+            GpuTimer.end("frame.total");
             RenderPhaseProfiler.getInstance().endCpuPhase("frame.total");
             taskmanager$detailedFrame = false;
         }
         FrameTimelineProfiler.getInstance().endFrame();
         InputLatencyProfiler.getInstance().onFramePresented();
+        taskmanager$liveFrame = false;
     }
 
     @Inject(method = "renderLevel", at = @At("HEAD"))
@@ -51,7 +57,7 @@ public class GameRendererMixin {
         GpuTimer.begin("gameRenderer.renderWorld");
     }
 
-    @Inject(method = "renderLevel", at = @At("TAIL"))
+    @Inject(method = "renderLevel", at = @At("RETURN"))
     private void taskmanager$onRenderWorldTail(CallbackInfo ci) {
         if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) return;
         GpuTimer.end("gameRenderer.renderWorld");
@@ -65,7 +71,7 @@ public class GameRendererMixin {
         GpuTimer.begin("gameRenderer.renderHand");
     }
 
-    @Inject(method = "renderItemInHand", at = @At("TAIL"), require = 0)
+    @Inject(method = "renderItemInHand", at = @At("RETURN"), require = 0)
     private void taskmanager$onRenderHandTail(CallbackInfo ci) {
         if (!ProfilerManager.getInstance().shouldCollectDetailedMetrics()) return;
         GpuTimer.end("gameRenderer.renderHand");

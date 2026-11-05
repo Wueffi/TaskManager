@@ -133,7 +133,10 @@ public final class AttributionModelBuilder {
             if (phase.gpuNanos() <= 0L) {
                 continue;
             }
-            String ownerMod = effectiveGpuPhaseOwner(phase);
+            String ownerMod = effectiveView ? effectiveGpuPhaseOwner(phase) : phase.ownerMod();
+            if (ownerMod == null || ownerMod.isBlank()) {
+                ownerMod = "shared/render";
+            }
             if (isSharedAttributionBucket(ownerMod)) {
                 sharedGpuNanos += phase.gpuNanos();
             } else {
@@ -378,12 +381,6 @@ public final class AttributionModelBuilder {
             total += weight;
             if (!"minecraft".equals(entry.getKey())) {
                 nonMinecraftTotal += weight;
-            }
-        }
-        if (nonMinecraftTotal > 0.0) {
-            weights.entrySet().removeIf(entry -> "minecraft".equals(entry.getKey()));
-            if (!weights.isEmpty()) {
-                return weights;
             }
         }
         if (total > 0.0) {

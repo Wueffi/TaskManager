@@ -188,6 +188,8 @@ public class TaskManagerScreen extends Screen {
 
     int activeTab = 0;
     int scrollOffset = 0;
+    boolean renderPassView = true;
+    boolean renderPassSortDescending = true;
     String selectedTaskMod;
     String selectedGpuMod;
     String selectedMemoryMod;
@@ -1679,6 +1681,22 @@ public class TaskManagerScreen extends Screen {
             }
         }
 
+        if (activeTab == 2 && mouseY >= getContentY() + PADDING && mouseY < getContentY() + PADDING + 16) {
+            if (isInside(mouseX, mouseY, PADDING, getContentY() + PADDING, 100, 16)) {
+                renderPassView = !renderPassView;
+                scrollOffset = 0;
+                return true;
+            }
+            if (isInside(mouseX, mouseY, PADDING + 106, getContentY() + PADDING, 116, 16)) {
+                ShaderPassProfiler.setEnabled(!ShaderPassProfiler.isEnabled());
+                return true;
+            }
+            if (renderPassView && isInside(mouseX, mouseY, PADDING + 228, getContentY() + PADDING, 100, 16)) {
+                renderPassSortDescending = !renderPassSortDescending;
+                return true;
+            }
+        }
+
         if (activeTab == 0) {
             int detailW = Math.min(420, Math.max(320, getScreenWidth() / 3));
             int listW = getScreenWidth() - detailW - PADDING;
@@ -1764,8 +1782,12 @@ public class TaskManagerScreen extends Screen {
         if (activeTab == 4) {
             int sharedPanelW = snapshot.sharedMemoryFamilies().isEmpty() ? 0 : Math.min(280, Math.max(220, getScreenWidth() / 4));
             int tableW = getScreenWidth() - sharedPanelW - (sharedPanelW > 0 ? PADDING : 0);
-            int memoryDescriptionBottomY = getContentY() + PADDING + measureWrappedHeight(Math.max(260, tableW - 16), memoryEffectiveView ? "Effective live heap by mod with shared/runtime buckets folded into concrete mods for comparison. Updated asynchronously." : "Raw live heap by owner/class family. Shared/runtime buckets stay separate until you switch back to Effective view.");
+            int memoryDescriptionBottomY = getContentY() + PADDING + measureWrappedHeight(Math.max(260, tableW - 16), memoryEffectiveView ? "Estimated shallow heap bytes by class; shared heap is redistributed. Includes unreachable objects, not retained ownership." : "Shallow heap bytes by class, including unreachable objects. Shared heap stays separate; native memory and unused capacity are excluded.");
             int memoryControlsTopY = memoryDescriptionBottomY + 26;
+            if (isInside(mouseX, mouseY, tableW - 222, memoryControlsTopY + 18, 112, 16)) {
+                MemoryProfiler.getInstance().requestPerModSample();
+                return true;
+            }
             if (isInside(mouseX, mouseY, tableW - 106, memoryControlsTopY + 18, 98, 16)) {
                 activeTab = 11;
                 systemMiniTab = SystemMiniTab.MEMORY_GRAPH;
@@ -2063,7 +2085,7 @@ public class TaskManagerScreen extends Screen {
         int contentHeight = switch (activeTab) {
             case 0 -> Math.max(visibleHeight, 40 + (getTaskRows().size() * ATTRIBUTION_ROW_HEIGHT));
             case 1 -> Math.max(visibleHeight, 40 + (getGpuRows().size() * ATTRIBUTION_ROW_HEIGHT));
-            case 2 -> Math.max(visibleHeight, 32 + (snapshot.renderPhases().size() * ROW_HEIGHT));
+            case 2 -> Math.max(visibleHeight, renderPassView ? 64 + (ShaderPassProfiler.rows().size() * 30) : 64 + (snapshot.renderPhases().size() * ROW_HEIGHT));
             case 3 -> Math.max(visibleHeight, 68 + (snapshot.startupRows().size() * STARTUP_ROW_HEIGHT));
             case 4 -> Math.max(visibleHeight, 214 + (getMemoryRows().size() * ATTRIBUTION_ROW_HEIGHT));
             case 5 -> Math.max(visibleHeight, 44 + (Math.min(20, snapshot.flamegraphStacks().size()) * 12));
@@ -2337,6 +2359,21 @@ public class TaskManagerScreen extends Screen {
             }
             if (input.key() == 256) {
                 focusedSearchTable = null;
+                return true;
+            }
+        }
+        if (activeTab == 2 && !globalSearchFocused && !startupSearchFocused && focusedSearchTable == null && focusedColorSetting == null) {
+            if (input.key() == 86) {
+                renderPassView = !renderPassView;
+                scrollOffset = 0;
+                return true;
+            }
+            if (input.key() == 67) {
+                ShaderPassProfiler.setEnabled(!ShaderPassProfiler.isEnabled());
+                return true;
+            }
+            if (input.key() == 83 && renderPassView) {
+                renderPassSortDescending = !renderPassSortDescending;
                 return true;
             }
         }
@@ -2898,8 +2935,8 @@ public class TaskManagerScreen extends Screen {
         int tableW = getScreenWidth() - sharedPanelW - panelGap;
         int top = getContentY() + PADDING;
         String description = memoryEffectiveView
-                ? "Effective live heap by mod with shared/runtime buckets folded into concrete mods for comparison. Updated asynchronously."
-                : "Raw live heap by owner/class family. Shared/runtime buckets stay separate until you switch back to Effective view.";
+                ? "Estimated shallow heap bytes by class; shared heap is redistributed. Includes unreachable objects, not retained ownership."
+                : "Shallow heap bytes by class, including unreachable objects. Shared heap stays separate; native memory and unused capacity are excluded.";
         int descriptionBottomY = top + measureWrappedHeight(Math.max(260, tableW - 16), description);
         int controlsTopY = descriptionBottomY + 26;
         int controlsY = controlsTopY + 42;
@@ -3263,7 +3300,7 @@ public class TaskManagerScreen extends Screen {
     }
 
     String memoryStatusText(long ageMillis) {
-        if (ageMillis == Long.MAX_VALUE) return "No memory sample yet";
+        if (ageMillis == Long.MAX_VALUE) return "No heap sample yet - use Refresh Heap (may pause)";
         return "Updated " + formatDuration(ageMillis) + " ago";
     }
 

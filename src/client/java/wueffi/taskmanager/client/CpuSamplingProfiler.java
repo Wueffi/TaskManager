@@ -6,6 +6,7 @@ import wueffi.taskmanager.client.util.BoundedMaps;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,16 +85,20 @@ public class CpuSamplingProfiler {
         running = false;
     }
 
-    public void reset() {
-        counters.clear();
-        threadReasonsByMod.clear();
-        frameReasonsByMod.clear();
-        renderReasonsByMod.clear();
+    public synchronized void reset() {
+        clearWindow();
         lastThreadCpuTimes.clear();
         lastSampleAtMillis.set(0);
     }
 
-    public WindowSnapshot drainWindow() {
+    private void clearWindow() {
+        counters.clear();
+        threadReasonsByMod.clear();
+        frameReasonsByMod.clear();
+        renderReasonsByMod.clear();
+    }
+
+    public synchronized WindowSnapshot drainWindow() {
         long ageMillis = getLastSampleAgeMillis();
         Map<String, Snapshot> result = new LinkedHashMap<>();
         counters.forEach((mod, counter) -> result.put(mod, new Snapshot(
@@ -111,7 +116,8 @@ public class CpuSamplingProfiler {
             int sampledThreadCount = threadReasonsByMod.get(mod) == null ? 0 : threadReasonsByMod.get(mod).size();
             details.put(mod, new DetailSnapshot(topThreads, topFrames, sampledThreadCount));
         }
-        reset();
+        // Keep CPU baselines across tick windows; resetting them drops the next interval.
+        clearWindow();
         return new WindowSnapshot(result, details, ageMillis);
     }
 
@@ -136,6 +142,8 @@ public class CpuSamplingProfiler {
                 boolean captureActive = profilerManager.isCaptureActive();
                 if (captureActive) {
                     sampleBusyThreads();
+                } else {
+                    reset();
                 }
                 Thread.sleep(captureActive
                         ? (profilerManager.shouldCollectDetailedMetrics() ? SAMPLE_INTERVAL_MS : LIGHTWEIGHT_SAMPLE_INTERVAL_MS)
@@ -148,7 +156,7 @@ public class CpuSamplingProfiler {
         }
     }
 
-    private void sampleBusyThreads() {
+    private synchronized void sampleBusyThreads() {
         if (!threadBean.isThreadCpuTimeSupported() || !threadBean.isThreadCpuTimeEnabled()) {
             return;
         }
@@ -186,6 +194,11 @@ public class CpuSamplingProfiler {
         long[] threadIds = cachedThreadIds;
         if (threadIds.length == 0 || refreshedAt == 0L || nowMillis - refreshedAt >= THREAD_REFRESH_INTERVAL_MS) {
             threadIds = threadBean.getAllThreadIds();
+            HashSet<Long> liveThreadIds = new HashSet<>();
+            for (long threadId : threadIds) {
+                liveThreadIds.add(threadId);
+            }
+            lastThreadCpuTimes.keySet().retainAll(liveThreadIds);
             cachedThreadIds = threadIds;
             lastThreadRefreshAtMillis.set(nowMillis);
         }
@@ -275,6 +288,10 @@ public class CpuSamplingProfiler {
             if (firstKnown == null) {
                 firstKnown = mod;
                 firstKnownReason = formatFrameReason(frame);
+            }
+
+            if ("shared/jvm".equals(mod)) {
+                continue;
             }
 
             if (isFrameworkMod(mod, className)) {

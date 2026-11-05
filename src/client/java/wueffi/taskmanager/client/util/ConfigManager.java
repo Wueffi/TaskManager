@@ -579,16 +579,16 @@ public class ConfigManager {
             config.sessionDurationSeconds = 30;
         }
         if (config.metricsUpdateIntervalMs <= 0) {
-            config.metricsUpdateIntervalMs = 100;
+            config.metricsUpdateIntervalMs = 500;
         }
         if (config.profilerUpdateDelayMs <= 0) {
-            config.profilerUpdateDelayMs = 100;
+            config.profilerUpdateDelayMs = 500;
         }
         if (config.hudFpsDisplayDelayMs <= 0) {
-            config.hudFpsDisplayDelayMs = 100;
+            config.hudFpsDisplayDelayMs = 250;
         }
         if (config.hudMemoryDisplayDelayMs <= 0) {
-            config.hudMemoryDisplayDelayMs = 100;
+            config.hudMemoryDisplayDelayMs = 500;
         }
         if (config.hudTransparencyPercent <= 0) {
             config.hudTransparencyPercent = 100;
@@ -640,10 +640,10 @@ public class ConfigManager {
         public String hudPosition = HudPosition.TOP_LEFT.name();
         public String hudLayoutMode = HudLayoutMode.SINGLE_COLUMN.name();
         public int sessionDurationSeconds = 30;
-        public int metricsUpdateIntervalMs = 100;
-        public int profilerUpdateDelayMs = 100;
-        public int hudFpsDisplayDelayMs = 100;
-        public int hudMemoryDisplayDelayMs = 100;
+        public int metricsUpdateIntervalMs = 500;
+        public int profilerUpdateDelayMs = 500;
+        public int hudFpsDisplayDelayMs = 250;
+        public int hudMemoryDisplayDelayMs = 500;
         public int hudTransparencyPercent = 100;
         public int frameBudgetTargetFps = 60;
         public boolean performanceAlertsEnabled = true;
