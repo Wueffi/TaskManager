@@ -17,6 +17,8 @@ public class taskmanagerClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(
+                client -> ShaderPassProfiler.shutdown());
         ModClassIndex.build();
         KeyBindHandler.register();
         ConfigManager.loadConfig();

@@ -80,7 +80,7 @@ final class SystemTabRenderer {
             top += 16;
             screen.drawMetricRow(ctx, graphLeft, top, graphWidth, "GPU Info", screen.blankToUnknown(system.gpuVendor()) + " | " + screen.blankToUnknown(system.gpuRenderer()));
             top += 16;
-            screen.drawMetricRow(ctx, graphLeft, top, graphWidth, "VRAM Usage", screen.formatBytesMb(system.vramUsedBytes()) + " / " + screen.formatBytesMb(system.vramTotalBytes()));
+            screen.drawMetricRow(ctx, graphLeft, top, graphWidth, "VRAM", formatVramSummary(screen, system));
             ctx.disableScissor();
             return;
         }
@@ -112,7 +112,7 @@ final class SystemTabRenderer {
         top += 16;
         screen.drawMetricRow(ctx, left, top, w - 32, "GPU Info", screen.blankToUnknown(system.gpuVendor()) + " | " + screen.blankToUnknown(system.gpuRenderer()));
         top += 16;
-        screen.drawMetricRow(ctx, left, top, w - 32, "VRAM Usage", screen.formatBytesMb(system.vramUsedBytes()) + " / " + screen.formatBytesMb(system.vramTotalBytes()));
+        screen.drawMetricRow(ctx, left, top, w - 32, "VRAM", formatVramSummary(screen, system));
         top += 16;
         screen.drawMetricRow(ctx, left, top, w - 32, "VRAM Paging", system.vramPagingActive() ? screen.formatBytesMb(system.vramPagingBytes()) : "none detected");
         top += 16;
@@ -123,6 +123,10 @@ final class SystemTabRenderer {
         screen.drawMetricRow(ctx, left, top, w - 32, "CPU", screen.formatCpuGpuSummary(system, true));
         top += 16;
         screen.drawMetricRow(ctx, left, top, w - 32, "GPU", screen.formatCpuGpuSummary(system, false));
+        top += 16;
+        screen.drawMetricRow(ctx, left, top, w - 32, "Minecraft CPU-side Frame Elapsed", formatMilliseconds(system.minecraftClientFrameCpuMillis()));
+        top += 16;
+        screen.drawMetricRow(ctx, left, top, w - 32, "Integrated Server Tick CPU", formatMilliseconds(system.integratedServerTickMillis()));
         top += 16;
         screen.drawMetricRow(ctx, left, top, w - 32, "CPU Temperature", screen.formatTemperature(system.cpuTemperatureC()));
         top += 16;
@@ -184,5 +188,22 @@ final class SystemTabRenderer {
         top = screen.renderStringListSection(ctx, left, top, w - 24, "Chunk Pipeline Drill-Down", screen.buildChunkPipelineDrilldownLines()) + 10;
         ctx.text(screen.uiTextRenderer(), screen.uiTextRenderer().plainSubstrByWidth("Export sessions keep the current runtime summary, findings, hotspots, and HTML report for offline inspection.", w - 24), left, top, TaskManagerScreen.TEXT_DIM, false);
         ctx.disableScissor();
+    }
+
+    private static String formatVramSummary(TaskManagerScreen screen, SystemMetricsProfiler.Snapshot system) {
+        if (system.vramTotalBytes() > 0L && system.vramUsedBytes() >= 0L) {
+            String summary = screen.formatBytesMb(system.vramUsedBytes()) + " used / " + screen.formatBytesMb(system.vramTotalBytes()) + " total";
+            return system.vramFreeBytes() >= 0L ? summary + " | " + screen.formatBytesMb(system.vramFreeBytes()) + " free" : summary;
+        }
+        if (system.vramFreeBytes() >= 0L) {
+            return screen.formatBytesMb(system.vramFreeBytes()) + " free | total unavailable";
+        }
+        return "unavailable";
+    }
+
+    private static String formatMilliseconds(double milliseconds) {
+        return Double.isFinite(milliseconds) && milliseconds >= 0.0
+                ? String.format(Locale.ROOT, "%.2f ms", milliseconds)
+                : "unavailable";
     }
 }

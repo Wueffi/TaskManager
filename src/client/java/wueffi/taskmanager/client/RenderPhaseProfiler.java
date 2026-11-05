@@ -33,28 +33,37 @@ public class RenderPhaseProfiler {
         }
     }
 
+    /** Measured shader intervals, deliberately outside estimated mod-attribution counters. */
+    public record ShaderPassSample(long session, long frame, String dimension, String stage, String pass,
+                                   int invocation, long inclusiveGpuNanos, long exclusiveGpuNanos, String status) {}
+
+    public java.util.List<ShaderPassSample> getShaderPassSamples() {
+        return ShaderPassProfiler.samples();
+    }
+
     private final Map<String, Counter> counters = new ConcurrentHashMap<>();
     private final Map<Long, Deque<PhaseScope>> cpuScopesByThread = new ConcurrentHashMap<>();
     private final Map<Long, Deque<String>> contextOwnersByThread = new ConcurrentHashMap<>();
     private volatile Set<String> knownModIds;
+    private volatile long latestGpuFrameNanos;
 
     private record PhaseScope(String phase, long startedAtNanos) {}
 
-    public void beginCpuPhase(String phase) {
+    public synchronized void beginCpuPhase(String phase) {
         Counter counter = ensureCounter(phase);
         recordContextOwnerHint(counter);
         cpuScopesByThread.computeIfAbsent(Thread.currentThread().threadId(), ignored -> new ArrayDeque<>())
                 .addLast(new PhaseScope(phase, System.nanoTime()));
     }
 
-    public void beginCpuPhase(String phase, String ownerMod) {
+    public synchronized void beginCpuPhase(String phase, String ownerMod) {
         Counter counter = ensureCounter(phase, ownerMod);
         recordContextOwnerHint(counter);
         cpuScopesByThread.computeIfAbsent(Thread.currentThread().threadId(), ignored -> new ArrayDeque<>())
                 .addLast(new PhaseScope(phase, System.nanoTime()));
     }
 
-    public void endCpuPhase(String phase) {
+    public synchronized void endCpuPhase(String phase) {
         Deque<PhaseScope> scopes = cpuScopesByThread.get(Thread.currentThread().threadId());
         if (scopes == null || scopes.isEmpty()) {
             return;
@@ -88,13 +97,21 @@ public class RenderPhaseProfiler {
         counter.cpuCalls.increment();
     }
 
-    public void recordGpuResult(String phase, long nanoseconds) {
+    public synchronized void recordGpuResult(String phase, long nanoseconds) {
         Counter counter = ensureCounter(phase);
         counter.gpuNanos.add(nanoseconds);
         counter.gpuCalls.increment();
     }
 
-    public void recordLikelyOwnerSample(long threadId, String ownerMod, String frameReason) {
+    public void recordGpuFrameResult(long nanoseconds) {
+        latestGpuFrameNanos = Math.max(0L, nanoseconds);
+    }
+
+    public long getLatestGpuFrameNanos() {
+        return latestGpuFrameNanos;
+    }
+
+    public synchronized void recordLikelyOwnerSample(long threadId, String ownerMod, String frameReason) {
         if (ownerMod == null || ownerMod.isBlank()) {
             return;
         }
@@ -115,11 +132,11 @@ public class RenderPhaseProfiler {
         }
     }
 
-    public void registerPhaseOwner(String phase, String ownerMod) {
+    public synchronized void registerPhaseOwner(String phase, String ownerMod) {
         ensureCounter(phase, ownerMod);
     }
 
-    public void pushContextOwner(String ownerMod) {
+    public synchronized void pushContextOwner(String ownerMod) {
         String normalizedOwner = normalizeContextOwner(ownerMod);
         if (normalizedOwner == null) {
             return;
@@ -128,7 +145,7 @@ public class RenderPhaseProfiler {
                 .addLast(normalizedOwner);
     }
 
-    public void popContextOwner() {
+    public synchronized void popContextOwner() {
         long threadId = Thread.currentThread().threadId();
         Deque<String> owners = contextOwnersByThread.get(threadId);
         if (owners == null || owners.isEmpty()) {
@@ -140,7 +157,7 @@ public class RenderPhaseProfiler {
         }
     }
 
-    public Map<String, PhaseSnapshot> getSnapshot() {
+    public synchronized Map<String, PhaseSnapshot> getSnapshot() {
         Map<String, PhaseSnapshot> result = new LinkedHashMap<>();
         counters.forEach((phase, counter) -> result.put(phase, new PhaseSnapshot(
                 counter.cpuNanos.sum(),
@@ -154,9 +171,9 @@ public class RenderPhaseProfiler {
         return result;
     }
 
-    public Map<String, PhaseSnapshot> drainSnapshot() {
+    public synchronized Map<String, PhaseSnapshot> drainSnapshot() {
         Map<String, PhaseSnapshot> result = getSnapshot();
-        reset();
+        counters.clear();
         return result;
     }
 
@@ -184,7 +201,8 @@ public class RenderPhaseProfiler {
         return result;
     }
 
-    public void reset() {
+    public synchronized void reset() {
+        latestGpuFrameNanos = 0L;
         counters.clear();
         cpuScopesByThread.clear();
         contextOwnersByThread.clear();

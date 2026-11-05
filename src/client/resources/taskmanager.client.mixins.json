@@ -5,8 +5,12 @@
   "compatibilityLevel": "JAVA_25",
   "client": [
     "GameRendererMixin",
+    "IrisCompositeRendererMixin",
     "IrisDeferredWorldRenderingPipelineMixin",
+    "IrisFinalPassRendererMixin",
     "IrisNewWorldRenderingPipelineMixin",
+    "IrisPipelineManagerMixin",
+    "IrisShadowCompositeRendererMixin",
     "IrisVanillaRenderingPipelineMixin",
     "MouseMixin",
     "MinecraftClientMixin",

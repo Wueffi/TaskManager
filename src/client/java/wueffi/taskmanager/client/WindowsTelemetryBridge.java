@@ -457,10 +457,43 @@ final class WindowsTelemetryBridge {
     private volatile long lastRequestAtMillis;
     private volatile long helperStartedAtMillis;
     private volatile Process helperProcess;
+    private Process fallbackProcess;
+    private boolean closed;
+    private volatile boolean collectionActive = true;
     private volatile Thread helperReaderThread;
     private volatile int helperIntervalMillis = -1;
     private volatile String helperRenderer = "";
     private volatile String helperVendor = "";
+
+    WindowsTelemetryBridge() {
+        if (isSupported()) {
+            Runtime.getRuntime().addShutdownHook(new Thread(this::close, "taskmanager-telemetry-shutdown"));
+        }
+    }
+
+    void setCollectionActive(boolean active) {
+        if (collectionActive == active) return;
+        synchronized (helperLock) {
+            collectionActive = active;
+            if (active) return;
+            stopHelperLocked();
+            if (fallbackProcess != null) {
+                fallbackProcess.destroyForcibly();
+                fallbackProcess = null;
+            }
+        }
+    }
+
+    void close() {
+        synchronized (helperLock) {
+            closed = true;
+            stopHelperLocked();
+            if (fallbackProcess != null) {
+                fallbackProcess.destroyForcibly();
+                fallbackProcess = null;
+            }
+        }
+    }
 
     boolean isSupported() {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
@@ -552,6 +585,7 @@ final class WindowsTelemetryBridge {
         }
         try {
             synchronized (helperLock) {
+                if (closed || !collectionActive) return;
                 stopHelperLocked();
                 ProcessBuilder processBuilder = new ProcessBuilder(
                         "powershell",
@@ -624,6 +658,7 @@ final class WindowsTelemetryBridge {
     }
 
     private void runFallbackRefresh(String renderer, String vendor) {
+        Process process = null;
         try {
             ProcessBuilder processBuilder = new ProcessBuilder(
                     "powershell",
@@ -631,11 +666,15 @@ final class WindowsTelemetryBridge {
                     "-ExecutionPolicy",
                     "Bypass",
                     "-Command",
-                    SCRIPT
+                    buildProcessScript(SCRIPT, 0, ProcessHandle.current().pid())
             ).redirectErrorStream(true);
             processBuilder.environment().put("TM_ACTIVE_RENDERER", renderer);
             processBuilder.environment().put("TM_ACTIVE_VENDOR", vendor);
-            Process process = processBuilder.start();
+            synchronized (helperLock) {
+                if (closed || !collectionActive) return;
+                process = processBuilder.start();
+                fallbackProcess = process;
+            }
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
@@ -654,6 +693,10 @@ final class WindowsTelemetryBridge {
         } catch (Exception e) {
             taskmanagerClient.LOGGER.debug("Windows telemetry fallback refresh failed: {}", e.getMessage());
         } finally {
+            synchronized (helperLock) {
+                if (process != null) process.destroyForcibly();
+                if (fallbackProcess == process) fallbackProcess = null;
+            }
             fallbackRefreshInFlight.set(false);
         }
     }
@@ -687,8 +730,16 @@ final class WindowsTelemetryBridge {
     }
 
     private String buildLoopScript(int intervalMillis) {
-        int safeInterval = Math.max(250, intervalMillis);
-        return "$ProgressPreference='SilentlyContinue'; while ($true) { & { " + SCRIPT + " }; Start-Sleep -Milliseconds " + safeInterval + " }";
+        return buildProcessScript(SCRIPT, Math.max(250, intervalMillis), ProcessHandle.current().pid());
+    }
+
+    static String buildProcessScript(String sampleScript, int intervalMillis, long parentPid) {
+        // Pin the parent process handle so a reused PID cannot keep an orphan alive.
+        return "$ProgressPreference='SilentlyContinue'; try { $tmParent=[System.Diagnostics.Process]::GetProcessById("
+                + parentPid + "); $null=$tmParent.Handle } catch { exit }; try { while (!$tmParent.HasExited) { & { "
+                + sampleScript + " }; "
+                + (intervalMillis <= 0 ? "break" : "if ($tmParent.WaitForExit(" + Math.max(250, intervalMillis) + ")) { break }")
+                + " } } finally { $tmParent.Dispose() }";
     }
 
     private String normalizeHelperValue(String value) {
@@ -710,7 +761,7 @@ final class WindowsTelemetryBridge {
         helperVendor = "";
         helperStartedAtMillis = 0L;
         if (process != null) {
-            process.destroy();
+            process.destroyForcibly();
         }
     }
 

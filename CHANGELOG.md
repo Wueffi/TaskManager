@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.4.0
+
+Minecraft 26.3 update with Iris shader-pass GPU profiling and a lower-overhead profiler.
+
+### Added
+
+- Iris shader-pass GPU timings (composite, shadow-composite and final passes, including compute-only passes) using asynchronous GL timestamp queries, with a sortable table in the Render tab and CSV export
+- Bounded outstanding GPU queries with frame and session IDs; dropped samples are counted instead of blocking
+- `captureWindows` export section: capture window lengths, sample interval, profiler self-cost, GPU-metric description and shader-pass coverage
+- "Refresh Heap" button in the Memory tab for on-demand class histograms
+
+### Changed
+
+- Updated to Minecraft 26.3 (Fabric Loader 0.19.5, Fabric API 0.161.0, Loom 1.17.21, Gradle 9.6.0, Java 25)
+- The Timeline "GPU frame" value is now labelled "GPU span": it is the GL timestamp span of the render call, includes idle and overlap, and is not GPU busy time
+- JVM and session sampling follow the configured metrics interval (default 500 ms) instead of every tick
+
+### Fixed
+
+- Frame drops from background collection: the Windows PowerShell telemetry helpers now stop when collection is inactive, and heap histograms no longer run automatically
+- GPU frame time no longer reports accumulated phase time (previously showed values such as 532 ms)
+- README listed F11 for session recording; the key is F9
+
+### Known limitations
+
+- Shader-pass totals cover Iris composite/shadowcomp/final passes only, not geometry, shadow maps or Voxy
+- Captures are rolling windows, not the full session; profiler overhead has not been benchmarked against an independent profiler
+
 ## 1.2.4
 
 Task Manager 1.2.4 focuses on conflict analysis, clearer attribution, and more reliable session capture.

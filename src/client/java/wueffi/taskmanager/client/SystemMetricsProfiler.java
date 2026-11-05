@@ -1,12 +1,20 @@
 package wueffi.taskmanager.client;
 
+import com.mojang.blaze3d.vertex.StagingBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
 import com.sun.management.OperatingSystemMXBean;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MappableRingBuffer;
+import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
+import org.lwjgl.opengl.ATIMeminfo;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import wueffi.taskmanager.client.util.ConfigManager;
 
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -14,7 +22,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import net.minecraft.client.Minecraft;
 
 public class SystemMetricsProfiler {
 
@@ -60,11 +67,14 @@ public class SystemMetricsProfiler {
             String gpuRenderer,
             long vramUsedBytes,
             long vramTotalBytes,
+            long vramFreeBytes,
             long vramPagingBytes,
             boolean vramPagingActive,
             long committedVirtualMemoryBytes,
             long directMemoryUsedBytes,
             long directMemoryMaxBytes,
+            long renderStagingBufferBytes,
+            String renderStagingBufferKind,
             boolean windowsBridgeActive,
             String counterSource,
             String sensorSource,
@@ -72,6 +82,8 @@ public class SystemMetricsProfiler {
             String cpuTemperatureUnavailableReason,
             double cpuCoreLoadPercent,
             double gpuCoreLoadPercent,
+            double minecraftClientFrameCpuMillis,
+            double integratedServerTickMillis,
             double gpuTemperatureC,
             double gpuHotSpotTemperatureC,
             double cpuTemperatureC,
@@ -137,16 +149,21 @@ public class SystemMetricsProfiler {
                     "",
                     -1L,
                     -1L,
+                    -1L,
                     0L,
                     false,
                     -1L,
                     0L,
                     -1L,
+                    -1L,
+                    "Unavailable",
                     false,
                     "Unavailable",
                     "Unavailable",
                     "No bridge data",
                     "No provider exposed a readable CPU package temperature",
+                    -1.0,
+                    -1.0,
                     -1.0,
                     -1.0,
                     -1.0,
@@ -237,6 +254,12 @@ public class SystemMetricsProfiler {
             long allocationRateBytesPerSecond
     ) {}
 
+    private record RenderStagingMemory(long bytes, String kind) {
+        private static RenderStagingMemory unavailable() {
+            return new RenderStagingMemory(-1L, "Unavailable");
+        }
+    }
+
     private static final int GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX = 0x9048;
     private static final int GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX = 0x9049;
     private static final int HISTORY_SIZE = 180;
@@ -285,6 +308,10 @@ public class SystemMetricsProfiler {
     private String cachedGpuVendor = "";
     private String cachedGpuRenderer = "";
 
+    public void setCollectionActive(boolean active) {
+        windowsBridge.setCollectionActive(active);
+    }
+
     public void sample(MemoryProfiler.Snapshot memorySnapshot, ProfilerManager.EntityCounts entityCounts, ProfilerManager.ChunkCounts chunkCounts) {
         long now = System.currentTimeMillis();
         String collectorGovernorMode = ProfilerManager.getInstance().getCollectorGovernorMode();
@@ -310,14 +337,23 @@ public class SystemMetricsProfiler {
 
         long vramUsedBytes = -1;
         long vramTotalBytes = -1;
+        long vramFreeBytes = -1;
         try {
             if (GL.getCapabilities().GL_NVX_gpu_memory_info) {
                 long totalKb = Integer.toUnsignedLong(GL11.glGetInteger(GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX));
                 long availableKb = Integer.toUnsignedLong(GL11.glGetInteger(GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX));
                 if (totalKb > 0) {
                     vramTotalBytes = totalKb * 1024L;
+                    vramFreeBytes = availableKb * 1024L;
                     vramUsedBytes = Math.max(0L, (totalKb - availableKb) * 1024L);
                 }
+            } else if (GL.getCapabilities().GL_ATI_meminfo) {
+                // ATI writes four integers; the scalar getter only allocates space for one.
+                int[] textureMemory = new int[4];
+                GL11.glGetIntegerv(ATIMeminfo.GL_TEXTURE_FREE_MEMORY_ATI, textureMemory);
+                long availableTextureKb = Integer.toUnsignedLong(textureMemory[0]);
+                vramFreeBytes = availableTextureKb * 1024L;
+                // GL_ATI_meminfo exposes free-memory estimates, but no reliable total-VRAM value.
             }
         } catch (Throwable ignored) {
         }
@@ -327,11 +363,18 @@ public class SystemMetricsProfiler {
         boolean vramPagingActive = vramPagingBytes > 0L;
         long directMemoryUsedBytes = memorySnapshot.directBufferBytes() + memorySnapshot.mappedBufferBytes();
         long directMemoryMaxBytes = lookupDirectMemoryMaxBytes();
+        RenderStagingMemory renderStagingMemory = sampleRenderStagingMemory();
+        double minecraftClientFrameCpuMillis = sampleMinecraftClientFrameCpuMillis();
+        double integratedServerTickMillis = sampleIntegratedServerTickMillis();
 
         Sensors.Sample nativeSample = sensors.sample(renderer, vendor);
         windowsBridge.requestRefreshIfNeeded(nativeSample.active());
         WindowsTelemetryBridge.Sample bridgeSample = windowsBridge.getLatest();
         WindowsTelemetryBridge.Sample mergedSample = mergeTelemetrySamples(bridgeSample, nativeSample);
+        double gpuCoreLoadPercent = mergedSample.gpuCoreLoadPercent();
+        if (!Double.isFinite(gpuCoreLoadPercent) || gpuCoreLoadPercent < 0.0) {
+            gpuCoreLoadPercent = -1.0; // no fresh sensor reading: report unavailable rather than an unvalidated vanilla value
+        }
         WindowsTelemetryBridge.Health telemetryHealth = windowsBridge.getHealth();
         TemperatureReading gpuTemperatureReading = gpuTemperatureRetention.resolve(
                 mergedSample.gpuTemperatureC(),
@@ -397,7 +440,7 @@ public class SystemMetricsProfiler {
         List<ProfilerManager.HotChunkSnapshot> hotChunks = ProfilerManager.getInstance().getLatestHotChunks();
         int maxEntitiesInHotChunk = hotChunks.isEmpty() ? 0 : hotChunks.getFirst().entityCount();
         double cpuLoadChangePerSecond = cpuLoadTrendTracker.update(mergedSample.cpuCoreLoadPercent(), now);
-        double gpuLoadChangePerSecond = gpuLoadTrendTracker.update(mergedSample.gpuCoreLoadPercent(), now);
+        double gpuLoadChangePerSecond = gpuLoadTrendTracker.update(gpuCoreLoadPercent, now);
         double cpuTemperatureChangePerSecond = cpuTemperatureTrendTracker.update(cpuTemperatureReading.value(), now);
         double gpuTemperatureChangePerSecond = gpuTemperatureTrendTracker.update(gpuTemperatureReading.value(), now);
 
@@ -406,18 +449,23 @@ public class SystemMetricsProfiler {
                 renderer,
                 vramUsedBytes,
                 vramTotalBytes,
+                vramFreeBytes,
                 vramPagingBytes,
                 vramPagingActive,
                 committedVirtualMemoryBytes,
                 directMemoryUsedBytes,
                 directMemoryMaxBytes,
+                renderStagingMemory.bytes(),
+                renderStagingMemory.kind(),
                 mergedSample.bridgeActive(),
                 mergedSample.counterSource(),
                 mergedSample.sensorSource(),
                 mergedSample.sensorErrorCode(),
                 buildCpuTemperatureUnavailableReason(cpuTemperatureReading, mergedSample),
                 mergedSample.cpuCoreLoadPercent(),
-                mergedSample.gpuCoreLoadPercent(),
+                gpuCoreLoadPercent,
+                minecraftClientFrameCpuMillis,
+                integratedServerTickMillis,
                 gpuTemperatureReading.value(),
                 gpuHotSpotTemperatureReading.value(),
                 cpuTemperatureReading.value(),
@@ -770,6 +818,10 @@ public class SystemMetricsProfiler {
 
     private Map<String, String> buildMetricProvenance() {
         Map<String, String> provenance = new LinkedHashMap<>();
+        provenance.put("gpuCoreLoadPercent", "native sensor bridge; unavailable (-1) when no reading");
+        provenance.put("minecraftClientFrameCpuMillis", "Minecraft CPU-side frame elapsed time before FPS limiting; includes waits, not CPU execution time");
+        provenance.put("integratedServerTickMillis", "direct integrated-server average tick duration");
+        provenance.put("renderStagingBufferBytes", "native or persistently mapped render staging allocation");
         provenance.put("packetProcessingLatencyMs", "inferred from packet volume and client tick pressure");
         provenance.put("networkBufferSaturation", "inferred from packet burst thresholds");
         provenance.put("bytesPerEntity", "derived from inbound bytes divided by loaded entity count");
@@ -779,6 +831,86 @@ public class SystemMetricsProfiler {
         provenance.put("lightQueue", "best-effort parsed from chunk debug text");
         provenance.put("chunkCounts", "best-effort parsed from chunk debug text");
         return provenance;
+    }
+
+    private double sampleMinecraftClientFrameCpuMillis() {
+        try {
+            long durationNanos = Minecraft.getInstance().getFrameTimeNs();
+            return durationNanos > 0L ? durationNanos / 1_000_000.0 : -1.0;
+        } catch (Throwable ignored) {
+            return -1.0;
+        }
+    }
+
+    private double sampleIntegratedServerTickMillis() {
+        try {
+            var server = Minecraft.getInstance().getSingleplayerServer();
+            if (server == null) {
+                return -1.0;
+            }
+            long durationNanos = server.getAverageTickTimeNanos();
+            return durationNanos > 0L ? durationNanos / 1_000_000.0 : -1.0;
+        } catch (Throwable ignored) {
+            return -1.0;
+        }
+    }
+
+    private RenderStagingMemory sampleRenderStagingMemory() {
+        try {
+            Minecraft client = Minecraft.getInstance();
+            if (client.levelRenderer == null) {
+                return RenderStagingMemory.unavailable();
+            }
+            SectionRenderDispatcher dispatcher = client.levelRenderer.sectionRenderDispatcher();
+            StagingBuffer stagingBuffer = findFieldValueByType(dispatcher, StagingBuffer.class);
+            if (stagingBuffer == null) {
+                return RenderStagingMemory.unavailable();
+            }
+
+            MappableRingBuffer mappedRing = findFieldValueByType(stagingBuffer, MappableRingBuffer.class);
+            if (mappedRing != null) {
+                GpuBuffer[] buffers = findFieldValueByType(mappedRing, GpuBuffer[].class);
+                if (buffers != null) {
+                    long totalBytes = 0L;
+                    for (GpuBuffer buffer : buffers) {
+                        if (buffer != null && !buffer.isClosed()) {
+                            totalBytes += Math.max(0L, buffer.size());
+                        }
+                    }
+                    if (totalBytes > 0L) {
+                        return new RenderStagingMemory(totalBytes, "Persistently mapped GPU staging ring");
+                    }
+                }
+                if (mappedRing.size() > 0) {
+                    return new RenderStagingMemory(mappedRing.size(), "Persistently mapped GPU staging buffer");
+                }
+            }
+
+            ByteBuffer nativeBuffer = findFieldValueByType(stagingBuffer, ByteBuffer.class);
+            if (nativeBuffer != null && nativeBuffer.capacity() > 0) {
+                return new RenderStagingMemory(nativeBuffer.capacity(), "Native CPU staging buffer");
+            }
+        } catch (Throwable ignored) {
+        }
+        return RenderStagingMemory.unavailable();
+    }
+
+    private <T> T findFieldValueByType(Object owner, Class<T> fieldType) {
+        if (owner == null) {
+            return null;
+        }
+        for (Class<?> type = owner.getClass(); type != null; type = type.getSuperclass()) {
+            for (Field field : type.getDeclaredFields()) {
+                if (!fieldType.isAssignableFrom(field.getType()) || !field.trySetAccessible()) {
+                    continue;
+                }
+                try {
+                    return fieldType.cast(field.get(owner));
+                } catch (IllegalAccessException ignored) {
+                }
+            }
+        }
+        return null;
     }
 
     private double sumProfilerThreadLoad() {

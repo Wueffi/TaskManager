@@ -16,6 +16,8 @@ public final class TaskManagerTestRunner {
         ConfigManagerMigrationTests.run();
         RuleEngineTests.run();
         RenderPhaseProfilerTests.run();
+        ShaderPassProfilerTests.run();
+        wueffi.taskmanager.client.util.GpuTimerTests.run();
         SystemMetricsProfilerTests.run();
         TaskManagerScreenLayoutTests.run();
         HudOverlayRendererTests.run();

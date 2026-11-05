@@ -13,7 +13,7 @@ import wueffi.taskmanager.client.ProfilerManager;
 public class MouseMixin {
 
     @Inject(method = "onMove", at = @At("HEAD"))
-    private void taskmanager$onCursorPos(long window, double x, double y, CallbackInfo ci) {
+    private void taskmanager$onCursorPos(long window, double x, double y, double xrel, double yrel, CallbackInfo ci) {
         if (!ProfilerManager.getInstance().shouldCollectFrameMetrics()) return;
         InputLatencyProfiler.getInstance().recordMouseMove(x, y);
     }

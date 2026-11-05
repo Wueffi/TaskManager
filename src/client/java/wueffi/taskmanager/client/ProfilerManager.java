@@ -391,7 +391,7 @@ public class ProfilerManager {
     private volatile long sessionRecordedAtMillis;
     private volatile int sessionMissedSamples;
     private volatile long sessionMaxSampleGapMillis;
-    private volatile long sessionExpectedSampleIntervalMillis = 50L;
+    private volatile long sessionExpectedSampleIntervalMillis = ConfigManager.getMetricsUpdateIntervalMs();
     private volatile PerformanceAlert latestPerformanceAlert;
     private volatile long performanceAlertFlashUntilMillis;
     private long lastSeenFrameSequence = 0;
@@ -730,7 +730,7 @@ public class ProfilerManager {
         sessionRecordedAtMillis = 0L;
         sessionMissedSamples = 0;
         sessionMaxSampleGapMillis = 0L;
-        sessionExpectedSampleIntervalMillis = 50L;
+        sessionExpectedSampleIntervalMillis = ConfigManager.getMetricsUpdateIntervalMs();
         sessionLoggingStartedAtMillis = System.currentTimeMillis();
         publishSnapshot(true);
     }
@@ -741,6 +741,7 @@ public class ProfilerManager {
         try {
             collectionActive = getLiveCollectionMode() != LiveCollectionMode.INACTIVE;
             ThreadLoadProfiler.getInstance().setCollectionActive(collectionActive, shouldCollectDetailedMetrics());
+            SystemMetricsProfiler.getInstance().setCollectionActive(collectionActive);
             if (!collectionActive) {
                 return;
             }
@@ -778,12 +779,7 @@ public class ProfilerManager {
             pushWindow(modWindows, modWindow);
             pushWindow(renderWindows, renderWindow);
 
-            boolean shouldSamplePerModMemory = shouldCollectDetailedMetrics() || sessionLogging;
-            long memoryCadenceMillis = CollectorMath.computeAdaptiveMemoryCadenceMillis(collectorGovernorMode, screenOpen, sessionLogging);
-            boolean allowExpensiveMemoryCollection = (!"light".equals(collectorGovernorMode) && !"self-protect".equals(collectorGovernorMode)) || screenOpen || sessionLogging;
-            if (shouldSamplePerModMemory && allowExpensiveMemoryCollection && MemoryProfiler.getInstance().getLastModSampleAgeMillis() > memoryCadenceMillis) {
-                MemoryProfiler.getInstance().requestPerModSample();
-            }
+            // Heap histograms pause the VM; request them explicitly from the Memory tab.
 
             latestRuleFindings = ruleEngine.buildRuleFindings(this, memorySnapshot);
             evaluatePerformanceAlerts(client);
@@ -923,7 +919,7 @@ public class ProfilerManager {
         List<Map<String, Object>> events = new ArrayList<>();
         for (SessionPoint point : sessionHistory) {
             appendTraceSpan(events, "Frame", "render", point.capturedAtEpochMillis(), point.frameTimeMs());
-            appendTraceSpan(events, "GPU Frame", "gpu", point.capturedAtEpochMillis(), point.gpuFrameTimeMs());
+        appendTraceSpan(events, "GPU Frame Span", "gpu", point.capturedAtEpochMillis(), point.gpuFrameTimeMs());
             appendTraceSpan(events, "Client Tick", "client", point.capturedAtEpochMillis(), point.clientTickMs());
             appendTraceSpan(events, "Server Tick", "server", point.capturedAtEpochMillis(), point.serverTickMs());
             if (point.gcPauseDurationMs() > 0L) {
@@ -987,6 +983,13 @@ public class ProfilerManager {
     }
 
     private void recordSessionPoint() {
+        long capturedAtMillis = System.currentTimeMillis();
+        SessionPoint previousPoint = sessionHistory.peekLast();
+        sessionExpectedSampleIntervalMillis = ConfigManager.getMetricsUpdateIntervalMs();
+        if (!shouldPublishSnapshot(false, capturedAtMillis,
+                previousPoint == null ? 0L : previousPoint.capturedAtEpochMillis(), (int) sessionExpectedSampleIntervalMillis)) {
+            return;
+        }
         Map<String, CpuSamplingProfiler.Snapshot> cpu = aggregateCpuWindows();
         Map<String, CpuSamplingProfiler.DetailSnapshot> cpuDetails = aggregateCpuDetailWindows();
         Map<String, ModTimingSnapshot> modInvokes = aggregateModWindows();
@@ -1025,8 +1028,10 @@ public class ProfilerManager {
         double frameTimeMs = frameTimeline.getLatestFrameNs() / 1_000_000.0;
         double frameTimeP95Ms = frameTimeline.getPercentileFrameNs(0.95) / 1_000_000.0;
         double frameTimeP99Ms = frameTimeline.getPercentileFrameNs(0.99) / 1_000_000.0;
-        double frameBuildTimeMs = renderPhases.values().stream().mapToLong(RenderPhaseProfiler.PhaseSnapshot::cpuNanos).sum() / 1_000_000.0;
-        double gpuFrameTimeMs = renderPhases.values().stream().mapToLong(RenderPhaseProfiler.PhaseSnapshot::gpuNanos).sum() / 1_000_000.0;
+        RenderPhaseProfiler.PhaseSnapshot framePhase = renderPhases.get("frame.total");
+        double frameBuildTimeMs = framePhase == null || framePhase.cpuCalls() <= 0L ? 0.0
+                : framePhase.cpuNanos() / (double) framePhase.cpuCalls() / 1_000_000.0;
+        double gpuFrameTimeMs = RenderPhaseProfiler.getInstance().getLatestGpuFrameNanos() / 1_000_000.0;
         double gpuFrameTimeP95Ms = percentileSessionGpuFrameTime(gpuFrameTimeMs);
         SystemMetricsProfiler.Snapshot systemSnapshot = SystemMetricsProfiler.getInstance().getSnapshot();
         List<NetworkPacketProfiler.Snapshot> packetHistory = NetworkPacketProfiler.getInstance().getHistory();
@@ -1057,8 +1062,6 @@ public class ProfilerManager {
         Map<String, String> gpuProvenanceByMod = buildGpuProvenanceByMod(rawGpuAttribution, effectiveGpuAttribution);
         Map<String, String> memoryProvenanceByMod = buildMemoryProvenanceByMod(rawMemoryMods, effectiveMemory, MemoryProfiler.getInstance().getLastModSampleAgeMillis());
 
-        long capturedAtMillis = System.currentTimeMillis();
-        SessionPoint previousPoint = sessionHistory.peekLast();
         long sampleIntervalMs = previousPoint == null ? sessionExpectedSampleIntervalMillis : Math.max(0L, capturedAtMillis - previousPoint.capturedAtEpochMillis());
         int missedSamplesSincePrevious = computeMissedSamples(previousPoint == null ? 0L : previousPoint.capturedAtEpochMillis(), capturedAtMillis, (int) sessionExpectedSampleIntervalMillis);
         sessionMissedSamples += missedSamplesSincePrevious;
@@ -1250,15 +1253,13 @@ public class ProfilerManager {
         double frameAvg = FrameTimelineProfiler.getInstance().getAverageFrameNs() / 1_000_000.0;
         double frameP95 = FrameTimelineProfiler.getInstance().getPercentileFrameNs(0.95) / 1_000_000.0;
         double frameP99 = FrameTimelineProfiler.getInstance().getPercentileFrameNs(0.99) / 1_000_000.0;
-        double gpuFrameMs = aggregateRenderWindows().values().stream().mapToLong(RenderPhaseProfiler.PhaseSnapshot::gpuNanos).sum() / 1_000_000.0;
         double msptAvg = TickProfiler.getInstance().getAverageServerTickNs() / 1_000_000.0;
         double msptP95 = TickProfiler.getInstance().getServerTickP95Ns() / 1_000_000.0;
         double msptP99 = TickProfiler.getInstance().getServerTickP99Ns() / 1_000_000.0;
         summary.put("frameTimeAvgMs", frameAvg);
         summary.put("frameTimeP95Ms", frameP95);
         summary.put("frameTimeP99Ms", frameP99);
-        summary.put("gpuFrameTimeMs", gpuFrameMs);
-        summary.put("gpuFrameTimeP95Ms", percentileSessionGpuFrameTime(gpuFrameMs));
+        addGpuFrameSummary(summary);
         summary.put("msptAvg", msptAvg);
         summary.put("msptP95", msptP95);
         summary.put("msptP99", msptP99);
@@ -1287,8 +1288,30 @@ public class ProfilerManager {
         summary.put("observedSessionSampleIntervalMs", computeObservedSessionSampleIntervalMs());
         summary.put("missedSessionSamples", sessionMissedSamples);
         summary.put("maxSessionSampleGapMs", sessionMaxSampleGapMillis);
+        summary.put("captureWindows", buildCaptureWindows());
         summary.put("metadata", buildExportMetadata());
         return summary;
+    }
+
+    static final String GPU_FRAME_TIME_KIND = "GL_TIMESTAMP span of GameRenderer.render (latest sample); includes GPU idle, queued work and CPU/GPU overlap, so it is not GPU busy time and can exceed frame time";
+
+    // Exports mix rolling windows of different lengths; state them so readers don't treat them as the whole session.
+    Map<String, Object> buildCaptureWindows() {
+        FrameTimelineProfiler frames = FrameTimelineProfiler.getInstance();
+        Map<String, Object> windows = new LinkedHashMap<>();
+        windows.put("frameTimelineFrames", frames.getCount());
+        windows.put("frameTimelineSpanSeconds", frames.getHistorySpanSeconds());
+        windows.put("sessionPoints", sessionHistory.size());
+        windows.put("sessionSampleIntervalMs", sessionExpectedSampleIntervalMillis);
+        windows.put("profilerSelfCostAvgMs", frames.getSelfCostAvgMs());
+        windows.put("profilerSelfCostMaxMs", frames.getSelfCostMaxMs());
+        windows.put("gpuFrameTimeKind", GPU_FRAME_TIME_KIND);
+        windows.put("shaderPassCoverage", ShaderPassProfiler.PASS_COVERAGE);
+        windows.put("warnings", List.of(
+                "frame timeline, session points and shader-pass capture are separate rolling windows, not the full session",
+                "compare captures only at the same sample interval and similar profiler self-cost",
+                "mod attribution and verdicts are estimates, not independently verified measurements"));
+        return windows;
     }
 
     private Map<String, Object> buildStartupSummary() {
@@ -1788,7 +1811,7 @@ public class ProfilerManager {
 
         Map<String, Object> memory = new LinkedHashMap<>();
         memory.put("sampleAgeMs", currentSnapshot.memoryAgeMillis());
-        memory.put("collectorSource", "live heap histogram + per-thread allocated-byte deltas");
+        memory.put("collectorSource", "shallow class-grouped heap histogram (includes unreachable objects, not retained RAM) + per-thread allocated-byte deltas");
         memory.put("rawTop", topMemoryRows(currentSnapshot.memoryMods(), effectiveMemory, false));
         memory.put("effectiveTop", topMemoryRows(effectiveMemory.displayBytes(), effectiveMemory, true));
         memory.put("redistributedBytesByMod", effectiveMemory.redistributedBytesByMod());
@@ -1920,7 +1943,7 @@ public class ProfilerManager {
                     row.put("redistributedMemoryMb", redistributedBytes / (1024.0 * 1024.0));
                     row.put("confidence", AttributionInsights.memoryConfidence(modId, rawBytes, displayBytes, redistributedBytes, currentSnapshot.memoryAgeMillis()).label());
                     row.put("provenance", AttributionInsights.memoryProvenance(rawBytes, redistributedBytes, currentSnapshot.memoryAgeMillis()));
-                    row.put("collectorSource", "live heap histogram + per-thread allocated-byte deltas");
+                    row.put("collectorSource", "shallow class-grouped heap histogram (includes unreachable objects, not retained RAM) + per-thread allocated-byte deltas");
                     row.put("sampleAgeMs", currentSnapshot.memoryAgeMillis());
                     return row;
                 })
@@ -1992,7 +2015,7 @@ public class ProfilerManager {
                     row.put("confidence", buildMemoryConfidenceByMod(currentSnapshot.memoryMods(), effectiveMemory, currentSnapshot.memoryAgeMillis()).getOrDefault(entry.getKey(), "Unknown"));
                     row.put("provenance", buildMemoryProvenanceByMod(currentSnapshot.memoryMods(), effectiveMemory, currentSnapshot.memoryAgeMillis()).getOrDefault(entry.getKey(), "Unknown"));
                     row.put("sampleAgeMs", currentSnapshot.memoryAgeMillis());
-                    row.put("collectorSource", "live heap histogram + per-thread allocated-byte deltas");
+                    row.put("collectorSource", "shallow class-grouped heap histogram (includes unreachable objects, not retained RAM) + per-thread allocated-byte deltas");
                     return row;
                 })
                 .toList();
@@ -2055,6 +2078,13 @@ public class ProfilerManager {
             return "owned by " + detail.lockOwnerName();
         }
         return "unknown lock";
+    }
+
+    void addGpuFrameSummary(Map<String, Object> summary) {
+        double gpuFrameMs = RenderPhaseProfiler.getInstance().getLatestGpuFrameNanos() / 1_000_000.0;
+        summary.put("gpuFrameTimeMs", gpuFrameMs);
+        summary.put("gpuFrameTimeP95Ms", percentileSessionGpuFrameTime(gpuFrameMs));
+        summary.put("gpuFrameTimeKind", GPU_FRAME_TIME_KIND);
     }
 
     private double percentileSessionGpuFrameTime(double currentGpuFrameTimeMs) {
@@ -2137,8 +2167,12 @@ public class ProfilerManager {
         events.add(event);
     }
 
+    static int computeSessionPointLimit(int durationSeconds, int intervalMillis) {
+        return Math.max(2, (int) ((durationSeconds * 1000L + intervalMillis - 1) / intervalMillis));
+    }
+
     private void enforceSessionWindow(Minecraft client) {
-        int maxSessionPoints = Math.max(60, ConfigManager.getSessionDurationSeconds() * 20);
+        int maxSessionPoints = computeSessionPointLimit(ConfigManager.getSessionDurationSeconds(), ConfigManager.getMetricsUpdateIntervalMs());
         while (sessionHistory.size() > maxSessionPoints) {
             sessionHistory.removeFirst();
         }
@@ -3129,7 +3163,7 @@ public class ProfilerManager {
         sessionRecordedAtMillis = 0L;
         sessionMissedSamples = 0;
         sessionMaxSampleGapMillis = 0L;
-        sessionExpectedSampleIntervalMillis = 50L;
+        sessionExpectedSampleIntervalMillis = ConfigManager.getMetricsUpdateIntervalMs();
         lastPerformanceAlertAtMillis.clear();
     }
 }

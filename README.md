@@ -28,7 +28,7 @@ Open the profiler in-game with `F12`. Toggle the HUD with `F10` and export Sessi
 - `Startup`: Fabric startup/entrypoint timing by mod in explicit milliseconds
 - `Memory`: per-mod heap estimates, shared JVM buckets, top classes, filtering, sorting, and shared-family drilldown
 - `Flame`: sampled stack/flame-style hotspot view
-- `Timeline`: frametime, FPS, jitter, variance, frame percentiles, GPU frame time, and MSPT overview
+- `Timeline`: frametime, FPS, jitter, variance, frame percentiles, GPU frame span (a GL timestamp span of the render call, not GPU busy time), and MSPT overview
 - `Network`: inbound/outbound throughput graphs plus packet/category breakdowns
 - `Disk`: disk read/write throughput graphs
 - `World`: lag map, hot chunks, entity hotspots, and block-entity drilldown
@@ -39,10 +39,44 @@ Open the profiler in-game with `F12`. Toggle the HUD with `F10` and export Sessi
 
 ![Task Manager](https://cdn.modrinth.com/data/cached_images/5355d01fc79d7f784245f016c5eb583f8472d4e7.png)
 
+## Named Iris GPU passes
+
+In **Render**, select **Passes** (`V`) and turn **Collect ON** (`C`). Collection is
+independent of the normal capture mode and continues after closing TaskManager;
+turn it off explicitly when finished. `S` reverses frame-cost sorting. **Phases**
+retains the existing broad CPU/GPU view.
+
+Named composite, shadow-composite (including compute-only), and final shader
+intervals use nonblocking GPU timestamps. Pass names/stages are Iris runtime
+metadata, not inferred source filenames. These measured rows are separate from
+estimated per-mod GPU attribution. Pass time is inclusive; never add it to its
+parent pipeline interval or to future nested compute breakdowns.
+
+`MS/FRAME` sums repeated invocations in each fully completed **executing** frame,
+then averages those frame sums. `MS/CALL` divides by completed GPU invocations,
+not CPU calls. Pending/failed frames do not become zero-cost frames. Sample
+counts and tooltips distinguish nonexecution in an observed stage from unavailable
+measurement; unobserved hooks are unsupported/unconfirmed, not zero milliseconds.
+
+The normal Export action (`F9`) also writes
+`taskmanager-shader-passes-<timestamp>.csv` and `.metadata.json` in
+`taskmanager-sessions`. The CSV contains raw completed inclusive intervals with
+`session,frame,dimension,stage,pass,invocation,gpu_ns,status`. Its sidecar records
+versions, shader pack/resolved settings, framebuffer resolution, render distance,
+GPU, frame coverage, status counts and retention limits. A capture retains at
+most 600 recent frames / 32,768 pass invocations; oldest whole frames are evicted.
+The timestamp pool admits at most 2,048 outstanding intervals and counts drops.
+Toggling capture, reloading/replacing a pipeline, or changing resolution/render
+distance starts a new session and cancels old pending queries.
+
+For comparisons, use the same stationary scene, camera, pack settings, resolution
+and distance. First measure profiling OFF versus ON to establish overhead; these
+hooks alone do not establish timing accuracy or an optimization speedup.
+
 ## Controls
 
 - `F12`: open Task Manager
-- `F11`: start/stop session recording
+- `F9`: start/stop session recording
 - `F10`: toggle HUD overlay
 
 All keybinds can also be changed in Minecraft controls.
@@ -69,7 +103,7 @@ Session exports include a polished summary with:
 - repeated conflict edges and pairwise lock contention summaries
 - rule findings and sensor diagnostics
 
-For `MANUAL_DEEP`, press `F11` to start recording, play normally while reproducing the issue, then press `F11` again to stop. The session will continue recording even if the Task Manager screen is closed.
+For `MANUAL_DEEP`, press `F9` to start recording, play normally while reproducing the issue, then press `F9` again to stop. The session will continue recording even if the Task Manager screen is closed.
 
 ## Notes on Accuracy
 
@@ -78,6 +112,9 @@ Task Manager aims to be honest about what is measured versus estimated:
 - CPU attribution is based on sampled stack ownership
 - GPU attribution is estimated from render-thread samples weighted by GPU timer-query time
 - Memory attribution is based on JVM/class-histogram style ownership and shared runtime buckets
+- Per-mod heap histograms are on demand: use `Refresh Heap` in Memory. This can pause the game; ordinary JVM memory metrics still update automatically. Per-mod rows and exported attribution retain the last requested heap sample until refreshed.
+- Session summary points follow the configured metrics interval (500 ms by default); frame/spike tracking and raw GPU pass samples keep their own cadence.
+- Windows telemetry helpers stop when live collection is inactive. Session recording, background capture modes, or an enabled HUD still intentionally collect.
 - Temperatures and some system metrics depend on what the platform or an external sensor provider exposes
 - For CPU temperature on Windows, running Core Temp is the primary recommended setup; LibreHardwareMonitor/OpenHardwareMonitor and HWiNFO can also work
 
